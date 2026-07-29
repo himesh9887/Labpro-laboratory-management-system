@@ -1,2 +1,10 @@
-import { FiActivity, FiBarChart2, FiBox, FiCreditCard, FiFilePlus, FiFileText, FiHome, FiSettings, FiUsers, FiUserCheck, FiUserPlus } from 'react-icons/fi';
-export const navigation = [{ label: 'Dashboard', to: '/dashboard', icon: FiHome }, { label: 'Patients', to: '/patients', icon: FiUsers }, { label: 'Create Report', to: '/reports/create', icon: FiFilePlus }, { label: 'Reports', to: '/reports', icon: FiFileText }, { label: 'Tests', to: '/tests', icon: FiActivity }, { label: 'Doctors', to: '/doctors', icon: FiUserCheck }, { label: 'Staff', to: '/staff', icon: FiUserPlus }, { label: 'Billing', to: '/billing', icon: FiCreditCard }, { label: 'Inventory', to: '/inventory', icon: FiBox }, { label: 'Analytics', to: '/analytics', icon: FiBarChart2 }, { label: 'Settings', to: '/settings', icon: FiSettings }];
+import { FiActivity, FiFilePlus, FiFileText, FiHome, FiSettings, FiUsers, FiUserPlus, FiDollarSign } from 'react-icons/fi';
+export const navigation = [
+  { label: 'Dashboard', to: '/dashboard', icon: FiHome },
+  { label: 'Create Report', to: '/reports/create', icon: FiFilePlus },
+  { label: 'Reports', to: '/reports', icon: FiFileText },
+  { label: 'Tests', to: '/tests', icon: FiActivity },
+  { label: 'Invoice', to: '/invoice', icon: FiDollarSign },
+  { label: 'Staff', to: '/staff', icon: FiUserPlus },
+  { label: 'Settings', to: '/settings', icon: FiSettings },
+];
