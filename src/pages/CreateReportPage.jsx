@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   FiChevronDown, FiFileText, FiMaximize2, FiPrinter,
   FiSave, FiTrash2, FiUser, FiX,
@@ -10,20 +10,22 @@ import PageHeader from '../components/common/PageHeader';
 import ResultTable from '../components/reports/ResultTable';
 import { A4PreviewPanel, ReportDocument } from '../components/reports/ReportPreview';
 import TestSearch from '../components/reports/TestSearch';
-import { patients } from '../data/mockData';
+import DraftRecoveryModal from '../components/ui/DraftRecoveryModal';
+import { patients as mockPatients } from '../data/mockData';
 import { allTests } from '../data/testTemplates';
+import { useReports } from '../hooks/useReports';
+import { usePatients } from '../hooks/usePatients';
+import { useDraft } from '../hooks/useDraft';
 
 // ─── Constants ───────────────────────────────────────────
-// Topbar is 73px. main padding is p-4 (16px) on mobile, p-7 (28px) on lg.
-// sticky top must account for topbar + main padding.
 const STICKY_TOP = 73 + 28; // 101px
 
 const blank = {
   name: '', age: '', gender: 'Female',
   patientId: '', registrationNumber: '', barcodeNumber: '',
-  collectionDate: '29 Jul 2026, 10:30 AM',
-  receivedDate: '29 Jul 2026, 10:45 AM',
-  reportDate: '29 Jul 2026, 04:30 PM',
+  collectionDate: new Date().toLocaleString('en-IN', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }),
+  receivedDate:   new Date().toLocaleString('en-IN', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }),
+  reportDate:     new Date().toLocaleString('en-IN', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }),
   doctor: '', reportStatus: 'Draft',
 };
 
@@ -43,7 +45,6 @@ const PATIENT_FIELDS = [
 function MobilePreviewModal({ patient, tests, values, onClose }) {
   return (
     <div className="fixed inset-0 z-[60] flex flex-col xl:hidden" style={{ background: '#111827' }}>
-      {/* Modal header */}
       <div
         className="flex shrink-0 items-center justify-between px-4 py-3"
         style={{ borderBottom: '1px solid #374151', background: '#1F2937' }}
@@ -71,8 +72,6 @@ function MobilePreviewModal({ patient, tests, values, onClose }) {
           <FiX size={13} /> Close
         </button>
       </div>
-
-      {/* A4 panel fills remaining height */}
       <div className="min-h-0 flex-1" style={{ background: '#1F2937' }}>
         <A4PreviewPanel patient={patient} tests={tests} values={values} />
       </div>
@@ -87,21 +86,15 @@ function StickyPreviewPanel({ patient, tests, values }) {
       style={{
         position: 'sticky',
         top: `${STICKY_TOP}px`,
-        // Height = 100vh minus topbar, minus main padding top and bottom
         height: `calc(100vh - ${STICKY_TOP}px - 28px)`,
         display: 'flex',
         flexDirection: 'column',
         minWidth: 0,
       }}
     >
-      {/* Panel title bar */}
       <div
         className="flex shrink-0 items-center gap-2 rounded-t-2xl px-4 py-2.5"
-        style={{
-          border: '1px solid #E2E8F0',
-          borderBottom: 'none',
-          background: '#ffffff',
-        }}
+        style={{ border: '1px solid #E2E8F0', borderBottom: 'none', background: '#ffffff' }}
       >
         <span className="grid h-6 w-6 place-items-center rounded-lg bg-blue-50 text-blue-600">
           <FiFileText size={13} />
@@ -114,15 +107,9 @@ function StickyPreviewPanel({ patient, tests, values }) {
           ● Live
         </span>
       </div>
-
-      {/* A4 workspace — this is the scrollable area */}
       <div
         className="dark:border-slate-700 min-h-0 flex-1 rounded-b-2xl"
-        style={{
-          border: '1px solid #E2E8F0',
-          background: '#F3F4F6',
-          overflow: 'hidden',           // A4PreviewPanel handles its own scroll
-        }}
+        style={{ border: '1px solid #E2E8F0', background: '#F3F4F6', overflow: 'hidden' }}
       >
         <A4PreviewPanel patient={patient} tests={tests} values={values} />
       </div>
@@ -132,12 +119,38 @@ function StickyPreviewPanel({ patient, tests, values }) {
 
 // ─── Main page ────────────────────────────────────────────
 export default function CreateReportPage() {
-  const [patient, setPatient]         = useState(blank);
+  const { addReport } = useReports();
+  const { patients: storedPatients } = usePatients();
+  const { hasDraft, draft, saveDraft, clearDraft } = useDraft('report');
+
+  // Combine stored patients with mock data for lookup
+  const allPatients = useMemo(() => {
+    const stored = storedPatients || [];
+    const ids = new Set(stored.map(p => p.id));
+    return [...stored, ...mockPatients.filter(p => !ids.has(p.id))];
+  }, [storedPatients]);
+
+  // Restore from draft or start blank
+  const [patient, setPatient]     = useState(() => draft?.data?.patient || blank);
+  const [selected, setSelected]   = useState(() => draft?.data?.tests   || []);
+  const [values,   setValues]     = useState(() => draft?.data?.values  || {});
+
   const [patientQuery, setPatientQuery] = useState('');
-  const [query, setQuery]             = useState('');
-  const [selected, setSelected]       = useState([]);
-  const [values, setValues]           = useState({});
+  const [query,        setQuery]        = useState('');
   const [showMobilePreview, setShowMobilePreview] = useState(false);
+  const [showDraftModal,    setShowDraftModal]    = useState(hasDraft);
+
+  // Auto-save draft (debounced 500ms)
+  const draftTimer = useRef(null);
+  useEffect(() => {
+    clearTimeout(draftTimer.current);
+    draftTimer.current = setTimeout(() => {
+      if (patient.name || selected.length > 0) {
+        saveDraft({ patient, tests: selected, values });
+      }
+    }, 500);
+    return () => clearTimeout(draftTimer.current);
+  }, [patient, selected, values]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const available = useMemo(
     () => allTests.filter(
@@ -147,7 +160,7 @@ export default function CreateReportPage() {
     [query, selected]
   );
 
-  const patientMatches = patients.filter(p =>
+  const patientMatches = allPatients.filter(p =>
     patientQuery &&
     `${p.name} ${p.id} ${p.phone}`.toLowerCase().includes(patientQuery.toLowerCase())
   );
@@ -168,11 +181,34 @@ export default function CreateReportPage() {
     setSelected([]);
     setValues({});
     setQuery('');
+    clearDraft();
     toast.success('Form cleared');
-  }, []);
+  }, [clearDraft]);
 
   const handleChange = useCallback((key, val) => setValues(v => ({ ...v, [key]: val })), []);
   const handleRemove = useCallback((id) => setSelected(s => s.filter(x => x.id !== id)), []);
+
+  const generateReport = useCallback(() => {
+    if (!patient.name.trim()) {
+      toast.error('Please enter a patient name');
+      return;
+    }
+    if (selected.length === 0) {
+      toast.error('Please select at least one test');
+      return;
+    }
+    const report = addReport({
+      patient: patient.name,
+      tests: selected.map(t => t.name).join(', '),
+      status: patient.reportStatus || 'Draft',
+      amount: '—',
+      patientData: patient,
+      testData: selected,
+      resultValues: values,
+    });
+    clearDraft();
+    toast.success(`Report ${report.id} saved successfully!`);
+  }, [patient, selected, values, addReport, clearDraft]);
 
   const downloadPDF = async () => {
     const el = document.getElementById('report-preview-pdf');
@@ -191,9 +227,37 @@ export default function CreateReportPage() {
     }
   };
 
+  // Draft recovery handlers
+  const handleContinueDraft = () => {
+    setShowDraftModal(false);
+    if (draft?.data) {
+      setPatient(draft.data.patient || blank);
+      setSelected(draft.data.tests || []);
+      setValues(draft.data.values || {});
+    }
+  };
+
+  const handleDiscardDraft = () => {
+    clearDraft();
+    setShowDraftModal(false);
+    setPatient(blank);
+    setSelected([]);
+    setValues({});
+  };
+
   return (
     <>
-      {/* Hidden A4 document for PDF export — kept offscreen, always current */}
+      {/* Draft recovery modal */}
+      {showDraftModal && (
+        <DraftRecoveryModal
+          type="report"
+          draft={draft}
+          onContinue={handleContinueDraft}
+          onDiscard={handleDiscardDraft}
+        />
+      )}
+
+      {/* Hidden A4 document for PDF export */}
       <div aria-hidden="true" style={{ position: 'fixed', top: '-9999px', left: '-9999px', pointerEvents: 'none', zIndex: -1 }}>
         <div id="report-preview-pdf">
           <ReportDocument patient={patient} tests={selected} values={values} />
@@ -216,7 +280,6 @@ export default function CreateReportPage() {
         description="Fill in patient details, select a laboratory test, and record validated results."
         action={
           <div className="flex flex-wrap gap-2">
-            {/* Mobile: show preview button */}
             <button
               className="btn-secondary xl:hidden w-full sm:w-auto"
               onClick={() => setShowMobilePreview(true)}
@@ -225,7 +288,7 @@ export default function CreateReportPage() {
             </button>
             <button
               className="btn-secondary w-full sm:w-auto"
-              onClick={() => toast.success('Draft saved securely')}
+              onClick={() => { saveDraft({ patient, tests: selected, values }); toast.success('Draft saved'); }}
             >
               <FiSave size={14} /> Save Draft
             </button>
@@ -236,19 +299,10 @@ export default function CreateReportPage() {
         }
       />
 
-      {/*
-        ─── Two-column layout ───────────────────────────────
-        Left  : scrollable form (flex-1, min-w-0)
-        Right : sticky A4 preview (xl+ only, fixed width)
-
-        We use flex (not grid) so the left column can grow to
-        fill all available space and the right column is a
-        true fixed-width sidebar that sticks.
-      */}
       <div className="flex gap-6 items-start">
 
-        {/* ══ LEFT COLUMN — form ══ */}
-        <div className="min-w-0 flex-1 space-y-5">
+        {/* ══ LEFT COLUMN — form (full width) ══ */}
+        <div className="min-w-0 flex-1 w-full space-y-5">
 
           {/* Patient Details */}
           <section className="card p-5">
@@ -279,10 +333,10 @@ export default function CreateReportPage() {
                       onClick={() => {
                         setPatient({
                           ...blank,
-                          name: p.name, age: String(p.age), gender: p.gender,
+                          name: p.name, age: String(p.age || ''), gender: p.gender || 'Female',
                           patientId: p.id, registrationNumber: p.id,
                           barcodeNumber: `BC-${p.id.slice(-6)}`,
-                          doctor: p.doctor,
+                          doctor: p.doctor || '',
                         });
                         setPatientQuery('');
                       }}
@@ -361,7 +415,6 @@ export default function CreateReportPage() {
             <button className="btn-secondary w-full sm:w-auto" onClick={clear}>
               <FiTrash2 size={14} /> Clear Form
             </button>
-            {/* Mobile preview shortcut in bottom bar */}
             <button
               className="btn-secondary xl:hidden w-full sm:w-auto"
               onClick={() => setShowMobilePreview(true)}
@@ -370,7 +423,7 @@ export default function CreateReportPage() {
             </button>
             <button
               className="btn-secondary w-full sm:w-auto"
-              onClick={() => toast.success('Report queued for approval')}
+              onClick={generateReport}
             >
               Generate Report
             </button>
@@ -380,17 +433,7 @@ export default function CreateReportPage() {
           </div>
         </div>
 
-        {/* ══ RIGHT COLUMN — sticky preview (xl+ only) ══ */}
-        <div
-          className="hidden xl:block shrink-0"
-          style={{ width: '440px' }}
-        >
-          <StickyPreviewPanel
-            patient={patient}
-            tests={selected}
-            values={values}
-          />
-        </div>
+        {/* ══ RIGHT COLUMN — hidden (preview accessible via modal) ══ */}
       </div>
     </>
   );

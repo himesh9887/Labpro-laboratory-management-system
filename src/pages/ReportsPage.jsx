@@ -9,29 +9,22 @@ import StatusBadge from '../components/common/StatusBadge';
 import Modal from '../components/ui/Modal';
 import ConfirmDialog from '../components/ui/ConfirmDialog';
 import ReportPreview from '../components/reports/ReportPreview';
-
-const initialReports = [
-  { id: 'RPT-240628', patient: 'Ananya Iyer', tests: 'CBC, LFT', date: '28 Jul 2026', status: 'Completed', amount: '₹1,240' },
-  { id: 'RPT-240627', patient: 'Aarav Sharma', tests: 'CBC, KFT', date: '28 Jul 2026', status: 'In progress', amount: '₹1,350' },
-  { id: 'RPT-240626', patient: 'Vikram Singh', tests: 'Thyroid Profile', date: '27 Jul 2026', status: 'Pending', amount: '₹850' },
-  { id: 'RPT-240625', patient: 'Priya Nair', tests: 'Lipid Profile, HbA1c', date: '27 Jul 2026', status: 'Completed', amount: '₹1,680' },
-  { id: 'RPT-240624', patient: 'Rohan Mehta', tests: 'KFT, Electrolytes', date: '26 Jul 2026', status: 'Completed', amount: '₹1,420' },
-];
+import { useReports } from '../hooks/useReports';
 
 export default function ReportsPage() {
-  const [reports, setReports] = useState(initialReports);
-  const [search, setSearch] = useState('');
-  const [previewOpen, setPreviewOpen] = useState(false);
+  const { reports, deleteReport } = useReports();
+  const [search, setSearch]             = useState('');
+  const [previewOpen, setPreviewOpen]   = useState(false);
   const [previewReport, setPreviewReport] = useState(null);
-  const [confirmOpen, setConfirmOpen] = useState(false);
-  const [deleteId, setDeleteId] = useState(null);
+  const [confirmOpen, setConfirmOpen]   = useState(false);
+  const [deleteId, setDeleteId]         = useState(null);
 
   const filtered = reports.filter(r =>
     `${r.id} ${r.patient} ${r.tests}`.toLowerCase().includes(search.toLowerCase())
   );
 
   const handleDelete = () => {
-    setReports(prev => prev.filter(r => r.id !== deleteId));
+    deleteReport(deleteId);
     setConfirmOpen(false);
     setDeleteId(null);
     toast.success('Report removed');
@@ -89,29 +82,37 @@ export default function ReportsPage() {
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
-              {filtered.map(r => (
-                <tr key={r.id} className="hover:bg-slate-50/70 dark:hover:bg-slate-800/30">
-                  <td className="px-5 py-4 font-mono text-xs font-medium text-blue-600">{r.id}</td>
-                  <td className="px-5 font-semibold text-slate-800 dark:text-slate-200">{r.patient}</td>
-                  <td className="px-5 text-slate-500">{r.tests}</td>
-                  <td className="px-5 text-slate-400">{r.date}</td>
-                  <td className="px-5 font-mono text-slate-500">{r.amount}</td>
-                  <td className="px-5"><StatusBadge status={r.status} /></td>
-                  <td className="px-5">
-                    <div className="flex gap-1">
-                      <button onClick={() => handlePreview(r)} className="rounded-lg p-2 text-slate-400 hover:bg-blue-50 hover:text-blue-600" title="Preview">
-                        <FiEye size={14} />
-                      </button>
-                      <button onClick={() => handleDownload(r)} className="rounded-lg p-2 text-slate-400 hover:bg-emerald-50 hover:text-emerald-600" title="Download PDF">
-                        <FiDownload size={14} />
-                      </button>
-                      <button onClick={() => { setDeleteId(r.id); setConfirmOpen(true); }} className="rounded-lg p-2 text-slate-400 hover:bg-rose-50 hover:text-rose-600" title="Delete">
-                        <FiTrash2 size={14} />
-                      </button>
-                    </div>
+              {filtered.length === 0 ? (
+                <tr>
+                  <td colSpan={7} className="px-5 py-12 text-center text-sm text-slate-400">
+                    No reports yet. Click &ldquo;Create report&rdquo; to add one.
                   </td>
                 </tr>
-              ))}
+              ) : (
+                filtered.map(r => (
+                  <tr key={r.id} className="hover:bg-slate-50/70 dark:hover:bg-slate-800/30">
+                    <td className="px-5 py-4 font-mono text-xs font-medium text-blue-600">{r.id}</td>
+                    <td className="px-5 font-semibold text-slate-800 dark:text-slate-200">{r.patient}</td>
+                    <td className="px-5 text-slate-500">{r.tests}</td>
+                    <td className="px-5 text-slate-400">{r.date}</td>
+                    <td className="px-5 font-mono text-slate-500">{r.amount}</td>
+                    <td className="px-5"><StatusBadge status={r.status} /></td>
+                    <td className="px-5">
+                      <div className="flex gap-1">
+                        <button onClick={() => handlePreview(r)} className="rounded-lg p-2 text-slate-400 hover:bg-blue-50 hover:text-blue-600" title="Preview">
+                          <FiEye size={14} />
+                        </button>
+                        <button onClick={() => handleDownload(r)} className="rounded-lg p-2 text-slate-400 hover:bg-emerald-50 hover:text-emerald-600" title="Download PDF">
+                          <FiDownload size={14} />
+                        </button>
+                        <button onClick={() => { setDeleteId(r.id); setConfirmOpen(true); }} className="rounded-lg p-2 text-slate-400 hover:bg-rose-50 hover:text-rose-600" title="Delete">
+                          <FiTrash2 size={14} />
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))
+              )}
             </tbody>
           </table>
         </div>
@@ -131,4 +132,3 @@ export default function ReportsPage() {
     </>
   );
 }
-

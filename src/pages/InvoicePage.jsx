@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { FiDollarSign, FiDownload, FiEye, FiFileText, FiPlus, FiPrinter, FiSearch, FiTrash2, FiCheck } from 'react-icons/fi';
 import { Link } from 'react-router-dom';
 import toast from 'react-hot-toast';
@@ -8,59 +8,65 @@ import PageHeader from '../components/common/PageHeader';
 import Modal from '../components/ui/Modal';
 import ConfirmDialog from '../components/ui/ConfirmDialog';
 import NumericInput from '../components/ui/NumericInput';
+import DraftRecoveryModal from '../components/ui/DraftRecoveryModal';
 import { invoiceCatalog } from '../data/testMaster';
+import { useInvoices } from '../hooks/useInvoices';
+import { useDraft } from '../hooks/useDraft';
 
 const GST_RATE = 0.18;
 
 const paymentModes = ['Cash', 'UPI', 'Card', 'Bank Transfer', 'Credit'];
 
 const timelineSteps = [
-  { key: 'created', label: 'Invoice Created' },
-  { key: 'payment', label: 'Payment Received' },
-  { key: 'collected', label: 'Sample Collected' },
+  { key: 'created',    label: 'Invoice Created' },
+  { key: 'payment',    label: 'Payment Received' },
+  { key: 'collected',  label: 'Sample Collected' },
   { key: 'processing', label: 'Processing' },
-  { key: 'ready', label: 'Report Ready' },
-  { key: 'verified', label: 'Verified' },
-  { key: 'printed', label: 'Printed' },
-  { key: 'delivered', label: 'Delivered' },
+  { key: 'ready',      label: 'Report Ready' },
+  { key: 'verified',   label: 'Verified' },
+  { key: 'printed',    label: 'Printed' },
+  { key: 'delivered',  label: 'Delivered' },
 ];
-
-let invoiceCounter = 1;
 
 const formatCurrency = (n) =>
   `₹${Number(n || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
 export default function InvoicePage() {
-  const [invoices, setInvoices] = useState([]);
-  const [showCreate, setShowCreate] = useState(false);
-  const [previewInvoice, setPreviewInvoice] = useState(null);
-  const [showTimeline, setShowTimeline] = useState(null);
-  const [confirmId, setConfirmId] = useState(null);
-  const [search, setSearch] = useState('');
+  const { invoices, addInvoice, deleteInvoice, updateTimeline } = useInvoices();
+  const { hasDraft, draft, clearDraft } = useDraft('invoice');
 
-  const filtered = invoices.filter(inv =>
-    `${inv.invoiceNo} ${inv.patientName} ${inv.phone}`.toLowerCase().includes(search.toLowerCase())
-  );
+  const [showCreate, setShowCreate]           = useState(false);
+  const [previewInvoice, setPreviewInvoice]   = useState(null);
+  const [showTimeline, setShowTimeline]       = useState(null);
+  const [confirmId, setConfirmId]             = useState(null);
+  const [search, setSearch]                   = useState('');
+  const [showDraftModal, setShowDraftModal]   = useState(hasDraft);
+  const [restoreDraft, setRestoreDraft]       = useState(null);
 
-  const totalRevenue = invoices.reduce((s, i) => s + (i.paidAmount || 0), 0);
+  // Show draft recovery modal only once on mount
+  useEffect(() => {
+    if (hasDraft) setShowDraftModal(true);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const filtered = useMemo(() =>
+    invoices.filter(inv =>
+      `${inv.invoiceNo} ${inv.patientName} ${inv.phone}`.toLowerCase().includes(search.toLowerCase())
+    ), [invoices, search]);
+
+  const totalRevenue  = invoices.reduce((s, i) => s + (i.paidAmount || 0), 0);
   const pendingAmount = invoices.filter(i => (i.dueAmount || 0) > 0).reduce((s, i) => s + (i.dueAmount || 0), 0);
 
   const handleCreateInvoice = (data) => {
-    const invoiceNo = `INV-${String(invoiceCounter++).padStart(6, '0')}`;
-    const newInvoice = {
-      ...data,
-      invoiceNo,
-      date: new Date().toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }),
-      timeline: [{ step: 'created', date: new Date().toISOString(), done: true }],
-    };
-    setInvoices(prev => [newInvoice, ...prev]);
-    setShowCreate(false);
-    toast.success(`Invoice ${invoiceNo} created successfully!`);
-    return newInvoice;
+    const inv = addInvoice(data);
+    if (inv) {
+      setShowCreate(false);
+      toast.success(`Invoice ${inv.invoiceNo} created successfully!`);
+    }
+    return inv;
   };
 
   const handleDelete = () => {
-    setInvoices(prev => prev.filter(i => i.invoiceNo !== confirmId));
+    deleteInvoice(confirmId);
     setConfirmId(null);
     toast.success('Invoice removed');
   };
@@ -88,25 +94,41 @@ export default function InvoicePage() {
     }, 500);
   };
 
-  const updateTimeline = (invoiceNo, stepKey) => {
-    setInvoices(prev => prev.map(inv => {
-      if (inv.invoiceNo !== invoiceNo) return inv;
-      const newTimeline = inv.timeline.map(t => ({ ...t, done: t.step === stepKey ? true : t.done }));
-      if (!newTimeline.find(t => t.step === stepKey)) {
-        newTimeline.push({ step: stepKey, date: new Date().toISOString(), done: true });
-      }
-      return { ...inv, timeline: newTimeline };
-    }));
+  const handleTimelineUpdate = (invoiceNo, stepKey) => {
+    updateTimeline(invoiceNo, stepKey);
     toast.success('Status updated');
+  };
+
+  // Draft recovery handlers
+  const handleContinueDraft = () => {
+    setShowDraftModal(false);
+    setRestoreDraft(draft?.data || null);
+    setShowCreate(true);
+  };
+
+  const handleDiscardDraft = () => {
+    clearDraft();
+    setShowDraftModal(false);
+    setRestoreDraft(null);
   };
 
   return (
     <>
+      {/* Draft recovery modal */}
+      {showDraftModal && (
+        <DraftRecoveryModal
+          type="invoice"
+          draft={draft}
+          onContinue={handleContinueDraft}
+          onDiscard={handleDiscardDraft}
+        />
+      )}
+
       <PageHeader
         title="Invoice & Billing"
         description="Create invoices, manage payments, and track report status."
         action={
-          <button className="btn-primary w-full sm:w-auto" onClick={() => { setShowCreate(true); setPreviewInvoice(null); }}>
+          <button className="btn-primary w-full sm:w-auto" onClick={() => { setShowCreate(true); setPreviewInvoice(null); setRestoreDraft(null); }}>
             <FiPlus /> New Invoice
           </button>
         }
@@ -217,8 +239,9 @@ export default function InvoicePage() {
 
       <CreateInvoiceModal
         open={showCreate}
-        onClose={() => setShowCreate(false)}
+        onClose={() => { setShowCreate(false); setRestoreDraft(null); }}
         onSave={handleCreateInvoice}
+        initialDraft={restoreDraft}
       />
 
       <Modal open={previewInvoice !== null} onClose={() => setPreviewInvoice(null)} title={`Invoice ${previewInvoice?.invoiceNo || ''}`} size="xl">
@@ -228,7 +251,7 @@ export default function InvoicePage() {
       <TimelineModal
         invoice={showTimeline}
         onClose={() => setShowTimeline(null)}
-        onUpdate={updateTimeline}
+        onUpdate={handleTimelineUpdate}
       />
 
       <ConfirmDialog
@@ -243,17 +266,57 @@ export default function InvoicePage() {
 }
 
 // ─────────────────────────────────────────────────────────
-// Create Invoice Modal (3-step wizard)
+// Create Invoice Modal (3-step wizard) with draft auto-save
 // ─────────────────────────────────────────────────────────
-function CreateInvoiceModal({ open, onClose, onSave }) {
-  const [step, setStep] = useState(1);
-  const [patientForm, setPatientForm] = useState({ name: '', age: '', gender: 'Male', phone: '', doctor: '', address: '' });
-  const [searchQuery, setSearchQuery] = useState('');
-  const [selectedTests, setSelectedTests] = useState([]);
-  const [discountStr, setDiscountStr] = useState('');
-  const [discountType, setDiscountType] = useState('percentage');
-  const [paymentMode, setPaymentMode] = useState('Cash');
-  const [paidStr, setPaidStr] = useState('');
+function CreateInvoiceModal({ open, onClose, onSave, initialDraft }) {
+  const { saveDraft, clearDraft } = useDraft('invoice');
+
+  const blankPatient = { name: '', age: '', gender: 'Male', phone: '', doctor: '', address: '' };
+
+  const [step,          setStep]          = useState(initialDraft?.step || 1);
+  const [patientForm,   setPatientForm]   = useState(initialDraft?.patientForm  || blankPatient);
+  const [searchQuery,   setSearchQuery]   = useState('');
+  const [selectedTests, setSelectedTests] = useState(initialDraft?.selectedTests || []);
+  const [discountStr,   setDiscountStr]   = useState(initialDraft?.discountStr   || '');
+  const [discountType,  setDiscountType]  = useState(initialDraft?.discountType  || 'percentage');
+  const [paymentMode,   setPaymentMode]   = useState(initialDraft?.paymentMode   || 'Cash');
+  const [paidStr,       setPaidStr]       = useState(initialDraft?.paidStr       || '');
+
+  // Restore from draft when initialDraft changes (modal opens with draft)
+  useEffect(() => {
+    if (initialDraft) {
+      setStep(initialDraft.step || 1);
+      setPatientForm(initialDraft.patientForm || blankPatient);
+      setSelectedTests(initialDraft.selectedTests || []);
+      setDiscountStr(initialDraft.discountStr || '');
+      setDiscountType(initialDraft.discountType || 'percentage');
+      setPaymentMode(initialDraft.paymentMode || 'Cash');
+      setPaidStr(initialDraft.paidStr || '');
+    }
+  }, [initialDraft]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Auto-save draft on any field change (debounced)
+  const draftTimer = useRef(null);
+  useEffect(() => {
+    if (!open) return;
+    clearTimeout(draftTimer.current);
+    draftTimer.current = setTimeout(() => {
+      // Only save if user has started filling something
+      if (patientForm.name || selectedTests.length > 0) {
+        saveDraft({
+          step,
+          patientForm,
+          selectedTests,
+          discountStr,
+          discountType,
+          paymentMode,
+          paidStr,
+          patientName: patientForm.name, // top-level for modal preview
+        });
+      }
+    }, 500);
+    return () => clearTimeout(draftTimer.current);
+  }, [step, patientForm, selectedTests, discountStr, discountType, paymentMode, paidStr, open]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Test search
   const filteredTests = invoiceCatalog.filter(t =>
@@ -261,28 +324,21 @@ function CreateInvoiceModal({ open, onClose, onSave }) {
     !selectedTests.some(s => s.id === t.id)
   );
 
-  const addTest = (test) => {
-    setSelectedTests(prev => [...prev, { ...test, overridePriceStr: String(test.price) }]);
-    setSearchQuery('');
-  };
-
-  const removeTest = (id) => setSelectedTests(prev => prev.filter(t => t.id !== id));
-
-  const updateOverride = (id, val) => {
-    setSelectedTests(prev => prev.map(t => t.id === id ? { ...t, overridePriceStr: val } : t));
-  };
+  const addTest    = (test) => { setSelectedTests(prev => [...prev, { ...test, overridePriceStr: String(test.price) }]); setSearchQuery(''); };
+  const removeTest = (id)   => setSelectedTests(prev => prev.filter(t => t.id !== id));
+  const updateOverride = (id, val) => setSelectedTests(prev => prev.map(t => t.id === id ? { ...t, overridePriceStr: val } : t));
 
   // Derived
-  const discount = Number(discountStr) || 0;
-  const paidAmount = Number(paidStr) || 0;
-  const subtotal = selectedTests.reduce((s, t) => s + (Number(t.overridePriceStr) || t.price || 0), 0);
+  const discount       = Number(discountStr) || 0;
+  const paidAmount     = Number(paidStr) || 0;
+  const subtotal       = selectedTests.reduce((s, t) => s + (Number(t.overridePriceStr) || t.price || 0), 0);
   const discountAmount = discountType === 'percentage'
     ? subtotal * (Math.min(discount, 100) / 100)
     : Math.min(discount, subtotal);
-  const taxableAmount = subtotal - discountAmount;
-  const gstAmount = taxableAmount * GST_RATE;
-  const grandTotal = taxableAmount + gstAmount;
-  const dueAmount = Math.max(0, grandTotal - paidAmount);
+  const taxableAmount  = subtotal - discountAmount;
+  const gstAmount      = taxableAmount * GST_RATE;
+  const grandTotal     = taxableAmount + gstAmount;
+  const dueAmount      = Math.max(0, grandTotal - paidAmount);
 
   const validateAge = (v) => {
     if (v === '') return true;
@@ -299,27 +355,25 @@ function CreateInvoiceModal({ open, onClose, onSave }) {
     if (discountType === 'percentage' && discount > 100) return toast.error('Discount cannot exceed 100%');
 
     onSave({
-      patientName: patientForm.name,
-      age: patientForm.age,
-      gender: patientForm.gender,
-      phone: patientForm.phone,
-      doctor: patientForm.doctor,
-      address: patientForm.address,
+      patientName:  patientForm.name,
+      age:          patientForm.age,
+      gender:       patientForm.gender,
+      phone:        patientForm.phone,
+      doctor:       patientForm.doctor,
+      address:      patientForm.address,
       selectedTests: selectedTests.map(t => ({ ...t, overridePrice: Number(t.overridePriceStr) || t.price })),
-      subtotal,
-      discountAmount,
-      gstAmount,
-      grandTotal,
-      paidAmount,
-      dueAmount,
-      paymentMode,
-      discount,
-      discountType,
+      subtotal, discountAmount, gstAmount, grandTotal, paidAmount, dueAmount,
+      paymentMode, discount, discountType,
     });
 
-    // reset
+    // Clear draft on successful submit
+    clearDraft();
+    resetForm();
+  };
+
+  const resetForm = () => {
     setStep(1);
-    setPatientForm({ name: '', age: '', gender: 'Male', phone: '', doctor: '', address: '' });
+    setPatientForm(blankPatient);
     setSelectedTests([]);
     setDiscountStr('');
     setPaidStr('');
@@ -327,12 +381,7 @@ function CreateInvoiceModal({ open, onClose, onSave }) {
   };
 
   const resetAndClose = () => {
-    setStep(1);
-    setPatientForm({ name: '', age: '', gender: 'Male', phone: '', doctor: '', address: '' });
-    setSelectedTests([]);
-    setDiscountStr('');
-    setPaidStr('');
-    setPaymentMode('Cash');
+    resetForm();
     onClose();
   };
 
@@ -354,7 +403,7 @@ function CreateInvoiceModal({ open, onClose, onSave }) {
       </div>
 
       <form onSubmit={handleSubmit} className="space-y-4">
-        {/* Step 1: Patient Details */}
+        {/* Step 1 */}
         {step === 1 && (
           <div className="space-y-4">
             <div className="grid gap-4 sm:grid-cols-2">
@@ -364,20 +413,12 @@ function CreateInvoiceModal({ open, onClose, onSave }) {
               </label>
               <label>
                 <span className="label">Age (years)</span>
-                <NumericInput
-                  value={patientForm.age}
-                  onChange={v => setPatientForm({ ...patientForm, age: v })}
-                  placeholder="e.g. 32"
-                  min={0}
-                  max={150}
-                />
+                <NumericInput value={patientForm.age} onChange={v => setPatientForm({ ...patientForm, age: v })} placeholder="e.g. 32" min={0} max={150} />
               </label>
               <label>
                 <span className="label">Gender</span>
                 <select className="field" value={patientForm.gender} onChange={e => setPatientForm({ ...patientForm, gender: e.target.value })}>
-                  <option>Male</option>
-                  <option>Female</option>
-                  <option>Other</option>
+                  <option>Male</option><option>Female</option><option>Other</option>
                 </select>
               </label>
               <label>
@@ -405,7 +446,7 @@ function CreateInvoiceModal({ open, onClose, onSave }) {
           </div>
         )}
 
-        {/* Step 2: Select Tests */}
+        {/* Step 2 */}
         {step === 2 && (
           <div className="space-y-4">
             <div className="relative">
@@ -446,18 +487,11 @@ function CreateInvoiceModal({ open, onClose, onSave }) {
                         <td className="px-4 py-2.5 font-medium text-slate-700 dark:text-slate-300">{t.name}</td>
                         <td className="px-4 py-2.5 font-mono text-slate-500">{formatCurrency(t.price)}</td>
                         <td className="px-4 py-2.5">
-                          <NumericInput
-                            value={t.overridePriceStr}
-                            onChange={v => updateOverride(t.id, v)}
-                            placeholder={String(t.price)}
-                            min={0}
-                            className="w-28 rounded-lg border border-slate-200 px-2 py-1.5 text-sm dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200 outline-none focus:border-blue-500"
-                          />
+                          <NumericInput value={t.overridePriceStr} onChange={v => updateOverride(t.id, v)} placeholder={String(t.price)} min={0}
+                            className="w-28 rounded-lg border border-slate-200 px-2 py-1.5 text-sm dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200 outline-none focus:border-blue-500" />
                         </td>
                         <td className="px-4 py-2.5">
-                          <button type="button" onClick={() => removeTest(t.id)} className="text-rose-500 hover:text-rose-700 transition-colors">
-                            <FiTrash2 size={14} />
-                          </button>
+                          <button type="button" onClick={() => removeTest(t.id)} className="text-rose-500 hover:text-rose-700 transition-colors"><FiTrash2 size={14} /></button>
                         </td>
                       </tr>
                     ))}
@@ -484,7 +518,7 @@ function CreateInvoiceModal({ open, onClose, onSave }) {
           </div>
         )}
 
-        {/* Step 3: Payment */}
+        {/* Step 3 */}
         {step === 3 && (
           <div className="space-y-4">
             <div className="grid gap-4 sm:grid-cols-2">
@@ -495,14 +529,7 @@ function CreateInvoiceModal({ open, onClose, onSave }) {
                     <option value="percentage">%</option>
                     <option value="flat">₹</option>
                   </select>
-                  <NumericInput
-                    value={discountStr}
-                    onChange={setDiscountStr}
-                    placeholder={discountType === 'percentage' ? '0–100' : '0'}
-                    min={0}
-                    max={discountType === 'percentage' ? 100 : subtotal}
-                    className="field"
-                  />
+                  <NumericInput value={discountStr} onChange={setDiscountStr} placeholder={discountType === 'percentage' ? '0–100' : '0'} min={0} max={discountType === 'percentage' ? 100 : subtotal} className="field" />
                 </div>
               </div>
               <div className="card p-4 space-y-3">
@@ -510,14 +537,7 @@ function CreateInvoiceModal({ open, onClose, onSave }) {
                 <select className="field" value={paymentMode} onChange={e => setPaymentMode(e.target.value)}>
                   {paymentModes.map(m => <option key={m}>{m}</option>)}
                 </select>
-                <NumericInput
-                  value={paidStr}
-                  onChange={setPaidStr}
-                  placeholder="Enter paid amount"
-                  min={0}
-                  max={grandTotal}
-                  className="field"
-                />
+                <NumericInput value={paidStr} onChange={setPaidStr} placeholder="Enter paid amount" min={0} max={grandTotal} className="field" />
               </div>
             </div>
 
@@ -600,11 +620,11 @@ function InvoicePreviewHTML({ invoice }) {
         <div className="grid grid-cols-2 gap-x-8 gap-y-3 text-sm">
           {[
             ['Patient Name', invoice.patientName],
-            ['Invoice No', invoice.invoiceNo],
+            ['Invoice No',   invoice.invoiceNo],
             ['Age / Gender', `${invoice.age || '—'} / ${invoice.gender || '—'}`],
-            ['Date', invoice.date],
-            ['Phone', invoice.phone || '—'],
-            ['Doctor', invoice.doctor || 'Self'],
+            ['Date',         invoice.date],
+            ['Phone',        invoice.phone || '—'],
+            ['Doctor',       invoice.doctor || 'Self'],
           ].map(([label, value]) => (
             <div key={label} className="flex gap-2">
               <span className="font-semibold text-[#111827]" style={{ fontWeight: 600, minWidth: 90 }}>{label}</span>

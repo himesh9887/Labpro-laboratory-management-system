@@ -3,9 +3,9 @@ import { QRCodeSVG } from 'qrcode.react';
 import { resultStatus } from '../../utils/report';
 
 // ─── A4 constants (96 dpi) ──────────────────────────────
-const A4_W_PX = 794;   // 210 mm
-const A4_H_PX = 1123;  // 297 mm
-const PAD_MM = 18;     // inner paper padding
+const A4_W_PX   = 794;   // 210 mm
+const A4_H_PX   = 1123;  // 297 mm
+const PAD_MM    = 18;     // inner paper padding
 
 // ─── Deterministic barcode ──────────────────────────────
 const BarcodeVisual = memo(function BarcodeVisual({ code }) {
@@ -16,11 +16,11 @@ const BarcodeVisual = memo(function BarcodeVisual({ code }) {
       <span
         key={i}
         style={{
-          display: 'inline-block',
-          width: `${1 + (seed % 3)}px`,
-          height: `${i % 4 === 0 ? 30 : 20}px`,
-          background: '#111827',
-          marginRight: `${1 + (seed % 2)}px`,
+          display:       'inline-block',
+          width:         `${1 + (seed % 3)}px`,
+          height:        `${i % 4 === 0 ? 30 : 20}px`,
+          background:    '#111827',
+          marginRight:   `${1 + (seed % 2)}px`,
           verticalAlign: 'bottom',
         }}
       />
@@ -54,7 +54,7 @@ const ResultValueCell = memo(function ResultValueCell({ value, status }) {
 // ─── Individual test section ────────────────────────────
 const TestSection = memo(function TestSection({ test, values }) {
   return (
-    <section style={{ marginTop: '86px' }}>
+    <section style={{ marginTop: '16px' }}>
       <div style={{ paddingBottom: '6px', borderBottom: '2px solid #1E40AF' }}>
         <h2 style={{ margin: 0, fontSize: '9.5pt', fontWeight: 700, color: '#1E40AF', fontFamily: "'Poppins', sans-serif", textTransform: 'uppercase', letterSpacing: '0.08em' }}>
           {test.name}
@@ -85,7 +85,7 @@ const TestSection = memo(function TestSection({ test, values }) {
         </thead>
         <tbody>
           {test.parameters.map((p, idx) => {
-            const value = values[`${test.id}.${idx}`] || '—';
+            const value  = values[`${test.id}.${idx}`] || '—';
             const status = resultStatus(value, p.range);
             return (
               <tr key={p.name || idx} style={{ background: idx % 2 === 0 ? '#fff' : '#F8FAFC', borderBottom: '1px solid #E2E8F0' }}>
@@ -93,7 +93,7 @@ const TestSection = memo(function TestSection({ test, values }) {
                 <td style={{ padding: '7px 10px' }}><ResultValueCell value={value} status={status} /></td>
                 <td style={{ padding: '7px 10px', color: '#374151', fontWeight: 500, wordBreak: 'break-word' }}>{p.unit}</td>
                 <td style={{ padding: '7px 10px', color: '#6B7280', fontSize: '8.5pt', wordBreak: 'break-word' }}>{p.range}</td>
-                <td style={{ padding: '7px 10px', color: '#6B7280', fontSize: '8pt', wordBreak: 'break-word' }}>{p.method}</td>
+                <td style={{ padding: '7px 10px', color: '#6B7280', fontSize: '8pt',   wordBreak: 'break-word' }}>{p.method}</td>
               </tr>
             );
           })}
@@ -118,15 +118,15 @@ export const ReportDocument = memo(function ReportDocument({ patient, tests, val
     <div
       id="report-preview"
       style={{
-        width: `${A4_W_PX}px`,
-        minHeight: `${A4_H_PX}px`,
-        background: '#ffffff',
-        fontFamily: "'Inter', 'Roboto', sans-serif",
-        padding: `${PAD_MM}mm`,
-        boxSizing: 'border-box',
-        color: '#111827',
-        display: 'flex',
-        flexDirection: 'column',
+        width:          `${A4_W_PX}px`,
+        minHeight:      `${A4_H_PX}px`,
+        background:     '#ffffff',
+        fontFamily:     "'Inter', 'Roboto', sans-serif",
+        padding:        `${PAD_MM}mm`,
+        boxSizing:      'border-box',
+        color:          '#111827',
+        display:        'flex',
+        flexDirection:  'column',
       }}
     >
       {/* HEADER */}
@@ -137,9 +137,9 @@ export const ReportDocument = memo(function ReportDocument({ patient, tests, val
           </div>
           <div>
             <h1 style={{ margin: 0, fontSize: '20pt', fontWeight: 700, color: '#111827', fontFamily: "'Poppins', sans-serif", lineHeight: 1.2 }}>LabPro Diagnostics</h1>
-            <p style={{ margin: '2px 0 0', fontSize: '9pt', fontWeight: 500, color: '#374151' }}>NABL-ready diagnostic laboratory</p>
-            <p style={{ margin: '4px 0 0', fontSize: '8pt', fontWeight: 400, color: '#6B7280' }}>24, Health Plaza, Bengaluru - 560001</p>
-            <p style={{ margin: '1px 0 0', fontSize: '8pt', fontWeight: 400, color: '#6B7280' }}>+91 80 4567 8900 · info@labpro.in · www.labpro.in</p>
+            <p style={{ margin: '2px 0 0', fontSize: '9pt',  fontWeight: 500, color: '#374151' }}>NABL-ready diagnostic laboratory</p>
+            <p style={{ margin: '4px 0 0', fontSize: '8pt',  fontWeight: 400, color: '#6B7280' }}>24, Health Plaza, Bengaluru - 560001</p>
+            <p style={{ margin: '1px 0 0', fontSize: '8pt',  fontWeight: 400, color: '#6B7280' }}>+91 80 4567 8900 · info@labpro.in · www.labpro.in</p>
           </div>
         </div>
         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px', flexShrink: 0 }}>
@@ -171,15 +171,15 @@ export const ReportDocument = memo(function ReportDocument({ patient, tests, val
         </h3>
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '6px 32px', fontSize: '9pt' }}>
           {[
-            ['Patient Name', patient.name || '—'],
+            ['Patient Name',    patient.name             || '—'],
             ['Registration No', patient.registrationNumber || '—'],
-            ['Patient ID', patient.patientId || '—'],
-            ['Barcode No', patient.barcodeNumber || '—'],
-            ['Age / Sex', `${patient.age || '—'} / ${patient.gender || '—'}`],
-            ['Referred By', patient.doctor || 'Self'],
-            ['Collected', patient.collectionDate || '—'],
-            ['Received', patient.receivedDate || '—'],
-            ['Reported', patient.reportDate || '—'],
+            ['Patient ID',      patient.patientId         || '—'],
+            ['Barcode No',      patient.barcodeNumber     || '—'],
+            ['Age / Sex',       `${patient.age || '—'} / ${patient.gender || '—'}`],
+            ['Referred By',     patient.doctor            || 'Self'],
+            ['Collected',       patient.collectionDate    || '—'],
+            ['Received',        patient.receivedDate      || '—'],
+            ['Reported',        patient.reportDate        || '—'],
           ].map(([label, val]) => (
             <div key={label} style={{ display: 'flex', gap: '6px' }}>
               <span style={{ fontWeight: 600, color: '#111827', minWidth: '100px', flexShrink: 0 }}>{label}</span>
@@ -190,7 +190,7 @@ export const ReportDocument = memo(function ReportDocument({ patient, tests, val
             <span style={{ fontWeight: 600, color: '#111827', minWidth: '100px', flexShrink: 0 }}>Report Status</span>
             <span style={{
               fontWeight: 600, fontSize: '8pt', padding: '1px 8px', borderRadius: '999px',
-              color: patient.reportStatus === 'Final' ? '#059669' : patient.reportStatus === 'Preliminary' ? '#D97706' : '#6B7280',
+              color:      patient.reportStatus === 'Final' ? '#059669' : patient.reportStatus === 'Preliminary' ? '#D97706' : '#6B7280',
               background: patient.reportStatus === 'Final' ? '#ECFDF5' : patient.reportStatus === 'Preliminary' ? '#FFFBEB' : '#F3F4F6',
             }}>
               : {patient.reportStatus || 'Draft'}
@@ -220,22 +220,22 @@ export const ReportDocument = memo(function ReportDocument({ patient, tests, val
       <div style={{ marginTop: '32px', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '24px' }}>
         {[
           [`Dr. ${patient.doctor || 'Physician'}`, 'Referring Doctor'],
-          ['Dr. Authorized Signatory', 'Pathologist / Lab Director'],
+          ['Dr. Authorized Signatory',             'Pathologist / Lab Director'],
         ].map(([name, title]) => (
           <div key={name} style={{ textAlign: 'center' }}>
             <div style={{ borderTop: '1px dashed #D1D5DB', width: '160px', margin: '0 auto 6px' }} />
-            <p style={{ margin: 0, fontSize: '8.5pt', fontWeight: 600, color: '#111827' }}>{name}</p>
-            <p style={{ margin: '2px 0 0', fontSize: '8pt', fontWeight: 400, color: '#6B7280' }}>{title}</p>
+            <p style={{ margin: 0,        fontSize: '8.5pt', fontWeight: 600, color: '#111827' }}>{name}</p>
+            <p style={{ margin: '2px 0 0', fontSize: '8pt',  fontWeight: 400, color: '#6B7280' }}>{title}</p>
           </div>
         ))}
       </div>
 
       {/* FOOTER */}
       <div style={{ marginTop: '20px', borderTop: '1px solid #D1D5DB', paddingTop: '10px', textAlign: 'center' }}>
-        <p style={{ margin: 0, fontSize: '8pt', fontWeight: 500, color: '#6B7280' }}>
+        <p style={{ margin: 0,         fontSize: '8pt',   fontWeight: 500, color: '#6B7280' }}>
           LabPro Diagnostics · Confidential Medical Record · Electronically generated report
         </p>
-        <p style={{ margin: '3px 0 0', fontSize: '8pt', fontWeight: 400, color: '#6B7280' }}>
+        <p style={{ margin: '3px 0 0', fontSize: '8pt',   fontWeight: 400, color: '#6B7280' }}>
           Please correlate clinically. This is a computer-generated report and does not require a physical signature.
         </p>
         <p style={{ margin: '4px 0 0', fontSize: '7.5pt', color: '#9CA3AF' }}>
@@ -280,13 +280,13 @@ function A4PreviewPanel({ patient, tests, values }) {
     <div
       ref={containerRef}
       style={{
-        display: 'flex',
+        display:       'flex',
         flexDirection: 'column',
-        width: '100%',
-        height: '100%',
-        overflow: 'hidden',
-        boxSizing: 'border-box',
-        background: 'transparent',
+        width:         '100%',
+        height:        '100%',
+        overflow:      'hidden',
+        boxSizing:     'border-box',
+        background:    'transparent',
       }}
     >
       {/* ── Toolbar ── */}
@@ -311,14 +311,14 @@ function A4PreviewPanel({ patient, tests, values }) {
         <div style={{ width: `${scaledW}px`, height: `${scaledH}px`, margin: '0 auto', position: 'relative' }}>
           <div
             style={{
-              width: `${A4_W_PX}px`,
+              width:           `${A4_W_PX}px`,
               transformOrigin: 'top left',
-              transform: `scale(${scale})`,
-              position: 'absolute',
-              top: 0,
-              left: 0,
-              boxShadow: '0 4px 32px rgba(15,23,42,.22), 0 1px 6px rgba(15,23,42,.10)',
-              borderRadius: '3px',
+              transform:       `scale(${scale})`,
+              position:        'absolute',
+              top:             0,
+              left:            0,
+              boxShadow:       '0 4px 32px rgba(15,23,42,.22), 0 1px 6px rgba(15,23,42,.10)',
+              borderRadius:    '3px',
             }}
           >
             <ReportDocument patient={patient} tests={tests} values={values} />
