@@ -1,3 +1,397 @@
-import { useMemo, useState } from 'react'; import { FiChevronDown, FiFileText, FiPrinter, FiSave, FiTrash2, FiUser } from 'react-icons/fi'; import html2canvas from 'html2canvas'; import { jsPDF } from 'jspdf'; import toast from 'react-hot-toast'; import PageHeader from '../components/common/PageHeader'; import ResultTable from '../components/reports/ResultTable'; import ReportPreview from '../components/reports/ReportPreview'; import TestSearch from '../components/reports/TestSearch'; import { patients } from '../data/mockData'; import { allTests } from '../data/testTemplates';
-const blank={name:'',age:'',gender:'Female',patientId:'',registrationNumber:'',barcodeNumber:'',collectionDate:'28 Jul 2026, 10:30 AM',receivedDate:'28 Jul 2026, 10:45 AM',reportDate:'28 Jul 2026, 04:30 PM',doctor:'',reportStatus:'Draft'};
-export default function CreateReportPage(){const [patient,setPatient]=useState(blank),[patientQuery,setPatientQuery]=useState(''),[query,setQuery]=useState(''),[selected,setSelected]=useState([]),[values,setValues]=useState({}),[showPreview,setShowPreview]=useState(false);const available=useMemo(()=>allTests.filter(t=>`${t.name} ${t.code}`.toLowerCase().includes(query.toLowerCase())&&!selected.some(s=>s.id===t.id)),[query,selected]);const matches=patients.filter(p=>`${p.name} ${p.id} ${p.phone}`.toLowerCase().includes(patientQuery.toLowerCase()));const field=(key,value)=>setPatient(p=>({...p,[key]:value}));const select=test=>{if(!test.parameters.length){toast('This test template is ready to be configured.');return;}setSelected(current=>[...current,test]);setQuery('');};const clear=()=>{setPatient(blank);setSelected([]);setValues({});setQuery('');toast.success('Report form cleared');};const download=async()=>{setShowPreview(true);setTimeout(async()=>{const element=document.getElementById('report-preview');if(!element)return;const canvas=await html2canvas(element,{scale:2});const pdf=new jsPDF('p','mm','a4');pdf.addImage(canvas.toDataURL('image/png'),'PNG',0,0,210,297);pdf.save(`LabPro-${patient.registrationNumber||'report'}.pdf`);},0)};return <><PageHeader title="Create diagnostic report" description="Enter patient details, select a test, and record validated results from predefined templates." action={<div className="flex gap-2"><button className="btn-secondary" onClick={()=>setShowPreview(x=>!x)}><FiFileText/> Preview</button><button className="btn-primary" onClick={()=>toast.success('Draft saved securely')}><FiSave/> Save draft</button></div>}/><div className={`grid gap-6 ${showPreview?'2xl:grid-cols-[minmax(0,1fr)_430px]':''}`}><div className="space-y-6"><section className="card p-5"><div className="mb-5 flex items-center gap-2"><span className="grid h-8 w-8 place-items-center rounded-lg bg-blue-50 text-blue-600"><FiUser/></span><div><h2 className="font-semibold">Patient details</h2><p className="text-xs text-slate-400">All patient and report metadata remains editable.</p></div></div><input className="field mb-3" placeholder="Find existing patient by name, registration no. or mobile" value={patientQuery} onChange={e=>setPatientQuery(e.target.value)}/><div className="mb-4 flex flex-wrap gap-2">{matches.map(p=><button key={p.id} className="rounded-lg border px-2 py-1 text-xs" onClick={()=>setPatient({...blank,name:p.name,age:p.age,gender:p.gender,patientId:p.id,registrationNumber:p.id,barcodeNumber:`BC-${p.id.slice(-6)}`,doctor:p.doctor})}>{p.name} · {p.id}</button>)}</div><div className="grid gap-3 md:grid-cols-3">{[['name','Patient name'],['age','Age'],['patientId','Patient ID'],['registrationNumber','Registration number'],['barcodeNumber','Barcode number'],['collectionDate','Sample collection date'],['receivedDate','Sample received date'],['reportDate','Report date'],['doctor','Referring doctor']].map(([key,label])=><label key={key}><span className="label">{label}</span><input className="field" value={patient[key]} onChange={e=>field(key,e.target.value)}/></label>)}<label><span className="label">Gender</span><select className="field" value={patient.gender} onChange={e=>field('gender',e.target.value)}><option>Female</option><option>Male</option><option>Other</option></select></label><label><span className="label">Report status</span><select className="field" value={patient.reportStatus} onChange={e=>field('reportStatus',e.target.value)}><option>Draft</option><option>Preliminary</option><option>Final</option></select></label></div></section><TestSearch query={query} onQueryChange={setQuery} tests={available} onSelect={select}/>{selected.length?selected.map(test=><ResultTable key={test.id} test={test} values={values} onChange={(key,value)=>setValues(v=>({...v,[key]:value}))} onRemove={id=>setSelected(s=>s.filter(x=>x.id!==id))}/>):<div className="rounded-2xl border border-dashed py-12 text-center"><FiChevronDown className="mx-auto text-2xl text-slate-300"/><p className="mt-2 text-sm text-slate-500">Search for a laboratory test to load its template automatically.</p></div>}<div className="sticky bottom-3 flex flex-wrap justify-end gap-3 rounded-2xl border bg-white/95 p-3 shadow-lg"><button className="btn-secondary" onClick={clear}><FiTrash2/> Clear form</button><button className="btn-secondary" onClick={()=>setShowPreview(true)}><FiFileText/> Preview report</button><button className="btn-secondary" onClick={()=>toast.success('Report generated and queued for approval')}>Generate report</button><button className="btn-primary" onClick={download}><FiPrinter/> Download PDF</button></div></div>{showPreview&&<aside className="sticky top-24 hidden h-[calc(100vh-110px)] overflow-auto rounded-2xl bg-slate-200 p-4 2xl:block"><ReportPreview patient={patient} tests={selected} values={values}/></aside>}</div></>}
+import { useCallback, useMemo, useState } from 'react';
+import {
+  FiChevronDown, FiFileText, FiMaximize2, FiPrinter,
+  FiSave, FiTrash2, FiUser, FiX,
+} from 'react-icons/fi';
+import html2canvas from 'html2canvas';
+import { jsPDF } from 'jspdf';
+import toast from 'react-hot-toast';
+import PageHeader from '../components/common/PageHeader';
+import ResultTable from '../components/reports/ResultTable';
+import { A4PreviewPanel, ReportDocument } from '../components/reports/ReportPreview';
+import TestSearch from '../components/reports/TestSearch';
+import { patients } from '../data/mockData';
+import { allTests } from '../data/testTemplates';
+
+// ─── Constants ───────────────────────────────────────────
+// Topbar is 73px. main padding is p-4 (16px) on mobile, p-7 (28px) on lg.
+// sticky top must account for topbar + main padding.
+const STICKY_TOP = 73 + 28; // 101px
+
+const blank = {
+  name: '', age: '', gender: 'Female',
+  patientId: '', registrationNumber: '', barcodeNumber: '',
+  collectionDate: '29 Jul 2026, 10:30 AM',
+  receivedDate: '29 Jul 2026, 10:45 AM',
+  reportDate: '29 Jul 2026, 04:30 PM',
+  doctor: '', reportStatus: 'Draft',
+};
+
+const PATIENT_FIELDS = [
+  ['name',               'Patient Name'],
+  ['age',                'Age'],
+  ['patientId',          'Patient ID'],
+  ['registrationNumber', 'Registration No.'],
+  ['barcodeNumber',      'Barcode Number'],
+  ['collectionDate',     'Collection Date'],
+  ['receivedDate',       'Received Date'],
+  ['reportDate',         'Report Date'],
+  ['doctor',             'Referring Doctor'],
+];
+
+// ─── Mobile fullscreen preview modal ─────────────────────
+function MobilePreviewModal({ patient, tests, values, onClose }) {
+  return (
+    <div className="fixed inset-0 z-[60] flex flex-col xl:hidden" style={{ background: '#111827' }}>
+      {/* Modal header */}
+      <div
+        className="flex shrink-0 items-center justify-between px-4 py-3"
+        style={{ borderBottom: '1px solid #374151', background: '#1F2937' }}
+      >
+        <div className="flex items-center gap-2.5">
+          <span className="grid h-8 w-8 place-items-center rounded-xl bg-blue-600 text-white">
+            <FiFileText size={15} />
+          </span>
+          <div>
+            <p className="text-sm font-semibold text-white leading-tight">Report Preview</p>
+            <p className="text-[10px] text-slate-400">A4 · Live update</p>
+          </div>
+          <span
+            className="ml-1 rounded-full px-2 py-0.5 text-[10px] font-semibold"
+            style={{ background: 'rgba(34,197,94,.15)', color: '#4ade80' }}
+          >
+            ● Live
+          </span>
+        </div>
+        <button
+          onClick={onClose}
+          className="flex items-center gap-1.5 rounded-xl px-3 py-2 text-xs font-medium text-slate-300 hover:text-white transition-colors"
+          style={{ border: '1px solid #374151', background: '#374151' }}
+        >
+          <FiX size={13} /> Close
+        </button>
+      </div>
+
+      {/* A4 panel fills remaining height */}
+      <div className="min-h-0 flex-1" style={{ background: '#1F2937' }}>
+        <A4PreviewPanel patient={patient} tests={tests} values={values} />
+      </div>
+    </div>
+  );
+}
+
+// ─── Sticky preview panel (xl desktop only) ──────────────
+function StickyPreviewPanel({ patient, tests, values }) {
+  return (
+    <aside
+      style={{
+        position: 'sticky',
+        top: `${STICKY_TOP}px`,
+        // Height = 100vh minus topbar, minus main padding top and bottom
+        height: `calc(100vh - ${STICKY_TOP}px - 28px)`,
+        display: 'flex',
+        flexDirection: 'column',
+        minWidth: 0,
+      }}
+    >
+      {/* Panel title bar */}
+      <div
+        className="flex shrink-0 items-center gap-2 rounded-t-2xl px-4 py-2.5"
+        style={{
+          border: '1px solid #E2E8F0',
+          borderBottom: 'none',
+          background: '#ffffff',
+        }}
+      >
+        <span className="grid h-6 w-6 place-items-center rounded-lg bg-blue-50 text-blue-600">
+          <FiFileText size={13} />
+        </span>
+        <span className="text-xs font-semibold text-slate-600">Report Preview</span>
+        <span
+          className="ml-auto rounded-full px-2 py-0.5 text-[9px] font-semibold"
+          style={{ background: 'rgba(34,197,94,.12)', color: '#16a34a' }}
+        >
+          ● Live
+        </span>
+      </div>
+
+      {/* A4 workspace — this is the scrollable area */}
+      <div
+        className="dark:border-slate-700 min-h-0 flex-1 rounded-b-2xl"
+        style={{
+          border: '1px solid #E2E8F0',
+          background: '#F3F4F6',
+          overflow: 'hidden',           // A4PreviewPanel handles its own scroll
+        }}
+      >
+        <A4PreviewPanel patient={patient} tests={tests} values={values} />
+      </div>
+    </aside>
+  );
+}
+
+// ─── Main page ────────────────────────────────────────────
+export default function CreateReportPage() {
+  const [patient, setPatient]         = useState(blank);
+  const [patientQuery, setPatientQuery] = useState('');
+  const [query, setQuery]             = useState('');
+  const [selected, setSelected]       = useState([]);
+  const [values, setValues]           = useState({});
+  const [showMobilePreview, setShowMobilePreview] = useState(false);
+
+  const available = useMemo(
+    () => allTests.filter(
+      t => `${t.name} ${t.code || ''}`.toLowerCase().includes(query.toLowerCase()) &&
+           !selected.some(s => s.id === t.id)
+    ),
+    [query, selected]
+  );
+
+  const patientMatches = patients.filter(p =>
+    patientQuery &&
+    `${p.name} ${p.id} ${p.phone}`.toLowerCase().includes(patientQuery.toLowerCase())
+  );
+
+  const field = useCallback((key, val) => setPatient(p => ({ ...p, [key]: val })), []);
+
+  const select = useCallback((test) => {
+    if (!test.parameters?.length) {
+      toast('This test has no parameters configured yet.');
+      return;
+    }
+    setSelected(prev => [...prev, test]);
+    setQuery('');
+  }, []);
+
+  const clear = useCallback(() => {
+    setPatient(blank);
+    setSelected([]);
+    setValues({});
+    setQuery('');
+    toast.success('Form cleared');
+  }, []);
+
+  const handleChange = useCallback((key, val) => setValues(v => ({ ...v, [key]: val })), []);
+  const handleRemove = useCallback((id) => setSelected(s => s.filter(x => x.id !== id)), []);
+
+  const downloadPDF = async () => {
+    const el = document.getElementById('report-preview-pdf');
+    if (!el) { toast.error('Preview not found'); return; }
+    toast.loading('Generating PDF…');
+    try {
+      const canvas = await html2canvas(el, { scale: 2, useCORS: true, logging: false });
+      const pdf = new jsPDF('p', 'mm', 'a4');
+      pdf.addImage(canvas.toDataURL('image/png'), 'PNG', 0, 0, 210, 297);
+      pdf.save(`LabPro-${patient.registrationNumber || 'report'}.pdf`);
+      toast.dismiss();
+      toast.success('PDF downloaded');
+    } catch {
+      toast.dismiss();
+      toast.error('PDF generation failed');
+    }
+  };
+
+  return (
+    <>
+      {/* Hidden A4 document for PDF export — kept offscreen, always current */}
+      <div aria-hidden="true" style={{ position: 'fixed', top: '-9999px', left: '-9999px', pointerEvents: 'none', zIndex: -1 }}>
+        <div id="report-preview-pdf">
+          <ReportDocument patient={patient} tests={selected} values={values} />
+        </div>
+      </div>
+
+      {/* Mobile fullscreen preview modal */}
+      {showMobilePreview && (
+        <MobilePreviewModal
+          patient={patient}
+          tests={selected}
+          values={values}
+          onClose={() => setShowMobilePreview(false)}
+        />
+      )}
+
+      {/* ─── Page Header ─── */}
+      <PageHeader
+        title="Create Diagnostic Report"
+        description="Fill in patient details, select a laboratory test, and record validated results."
+        action={
+          <div className="flex flex-wrap gap-2">
+            {/* Mobile: show preview button */}
+            <button
+              className="btn-secondary xl:hidden w-full sm:w-auto"
+              onClick={() => setShowMobilePreview(true)}
+            >
+              <FiMaximize2 size={14} /> Preview Report
+            </button>
+            <button
+              className="btn-secondary w-full sm:w-auto"
+              onClick={() => toast.success('Draft saved securely')}
+            >
+              <FiSave size={14} /> Save Draft
+            </button>
+            <button className="btn-primary w-full sm:w-auto" onClick={downloadPDF}>
+              <FiPrinter size={14} /> Download PDF
+            </button>
+          </div>
+        }
+      />
+
+      {/*
+        ─── Two-column layout ───────────────────────────────
+        Left  : scrollable form (flex-1, min-w-0)
+        Right : sticky A4 preview (xl+ only, fixed width)
+
+        We use flex (not grid) so the left column can grow to
+        fill all available space and the right column is a
+        true fixed-width sidebar that sticks.
+      */}
+      <div className="flex gap-6 items-start">
+
+        {/* ══ LEFT COLUMN — form ══ */}
+        <div className="min-w-0 flex-1 space-y-5">
+
+          {/* Patient Details */}
+          <section className="card p-5">
+            <div className="mb-4 flex items-center gap-2.5">
+              <span className="grid h-8 w-8 place-items-center rounded-lg bg-blue-50 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400">
+                <FiUser size={15} />
+              </span>
+              <div>
+                <h2 className="text-sm font-semibold text-slate-800 dark:text-slate-200">Patient Details</h2>
+                <p className="text-xs text-slate-400">All fields update the preview in real time.</p>
+              </div>
+            </div>
+
+            {/* Quick patient lookup */}
+            <div className="relative mb-3">
+              <input
+                className="field"
+                placeholder="Find existing patient by name, ID or mobile…"
+                value={patientQuery}
+                onChange={e => setPatientQuery(e.target.value)}
+              />
+              {patientMatches.length > 0 && (
+                <div className="absolute z-20 mt-1 w-full rounded-xl border border-slate-200 bg-white p-1.5 shadow-xl dark:border-slate-700 dark:bg-slate-900">
+                  {patientMatches.map(p => (
+                    <button
+                      key={p.id}
+                      className="flex w-full items-center justify-between rounded-lg px-3 py-2 text-left hover:bg-blue-50 dark:hover:bg-blue-900/30 transition-colors"
+                      onClick={() => {
+                        setPatient({
+                          ...blank,
+                          name: p.name, age: String(p.age), gender: p.gender,
+                          patientId: p.id, registrationNumber: p.id,
+                          barcodeNumber: `BC-${p.id.slice(-6)}`,
+                          doctor: p.doctor,
+                        });
+                        setPatientQuery('');
+                      }}
+                    >
+                      <span>
+                        <span className="block text-sm font-medium text-slate-700 dark:text-slate-200">{p.name}</span>
+                        <span className="text-xs text-slate-400">{p.id} · {p.phone}</span>
+                      </span>
+                      <span className="text-xs font-semibold text-blue-600">Select</span>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* Patient fields */}
+            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+              {PATIENT_FIELDS.map(([key, label]) => (
+                <label key={key}>
+                  <span className="label">{label}</span>
+                  <input
+                    className="field"
+                    value={patient[key]}
+                    onChange={e => field(key, e.target.value)}
+                  />
+                </label>
+              ))}
+              <label>
+                <span className="label">Gender</span>
+                <select className="field" value={patient.gender} onChange={e => field('gender', e.target.value)}>
+                  <option>Female</option>
+                  <option>Male</option>
+                  <option>Other</option>
+                </select>
+              </label>
+              <label>
+                <span className="label">Report Status</span>
+                <select className="field" value={patient.reportStatus} onChange={e => field('reportStatus', e.target.value)}>
+                  <option>Draft</option>
+                  <option>Preliminary</option>
+                  <option>Final</option>
+                </select>
+              </label>
+            </div>
+          </section>
+
+          {/* Test Search */}
+          <TestSearch
+            query={query}
+            onQueryChange={setQuery}
+            tests={available}
+            onSelect={select}
+          />
+
+          {/* Result tables */}
+          {selected.length > 0 ? (
+            selected.map(test => (
+              <ResultTable
+                key={test.id}
+                test={test}
+                values={values}
+                onChange={handleChange}
+                onRemove={handleRemove}
+              />
+            ))
+          ) : (
+            <div className="rounded-2xl border border-dashed border-slate-300 py-14 text-center dark:border-slate-700">
+              <FiChevronDown className="mx-auto mb-2 text-2xl text-slate-300 dark:text-slate-600" />
+              <p className="text-sm text-slate-400">Search for a test above to load its template.</p>
+              <p className="mt-1 text-xs text-slate-400/70">Results update the preview instantly.</p>
+            </div>
+          )}
+
+          {/* Bottom action bar */}
+          <div className="sticky bottom-3 z-10 flex flex-wrap justify-end gap-3 rounded-2xl border border-slate-200 bg-white/95 p-3 shadow-lg backdrop-blur dark:border-slate-700 dark:bg-slate-900/95">
+            <button className="btn-secondary w-full sm:w-auto" onClick={clear}>
+              <FiTrash2 size={14} /> Clear Form
+            </button>
+            {/* Mobile preview shortcut in bottom bar */}
+            <button
+              className="btn-secondary xl:hidden w-full sm:w-auto"
+              onClick={() => setShowMobilePreview(true)}
+            >
+              <FiFileText size={14} /> Preview Report
+            </button>
+            <button
+              className="btn-secondary w-full sm:w-auto"
+              onClick={() => toast.success('Report queued for approval')}
+            >
+              Generate Report
+            </button>
+            <button className="btn-primary w-full sm:w-auto" onClick={downloadPDF}>
+              <FiPrinter size={14} /> Download PDF
+            </button>
+          </div>
+        </div>
+
+        {/* ══ RIGHT COLUMN — sticky preview (xl+ only) ══ */}
+        <div
+          className="hidden xl:block shrink-0"
+          style={{ width: '440px' }}
+        >
+          <StickyPreviewPanel
+            patient={patient}
+            tests={selected}
+            values={values}
+          />
+        </div>
+      </div>
+    </>
+  );
+}

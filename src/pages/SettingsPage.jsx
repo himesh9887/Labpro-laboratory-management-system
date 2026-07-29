@@ -27,8 +27,8 @@ export default function SettingsPage() {
         title="Settings"
         description="Manage your laboratory profile, workflow and access preferences."
       />
-      <div className="grid gap-6 xl:grid-cols-3">
-        <nav className="card h-max p-2">
+      <div className="grid gap-6 sm:grid-cols-3 xl:grid-cols-3">
+        <nav className="card h-max p-2 sm:col-span-1">
           {nav.map(([id, label, Icon]) => (
             <button
               key={id}
@@ -44,12 +44,12 @@ export default function SettingsPage() {
           ))}
         </nav>
 
-        <section className="card p-6 xl:col-span-2">
+        <section className="card p-6 sm:col-span-2 xl:col-span-2">
           {tab === 'profile' && (
             <>
               <h2 className="text-lg font-semibold text-slate-900 dark:text-white">Laboratory profile</h2>
               <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">This information appears on reports and invoices.</p>
-              <div className="mt-6 grid gap-4 md:grid-cols-2">
+              <div className="mt-6 grid gap-4 sm:grid-cols-2">
                 {[['name', 'Laboratory name'], ['license', 'License number'], ['email', 'Email address'], ['phone', 'Phone number']].map(([key, label]) => (
                   <label key={key}>
                     <span className="label">{label}</span>
@@ -61,8 +61,8 @@ export default function SettingsPage() {
                   <textarea className="field h-20" value={profile.address} onChange={e => setProfile({ ...profile, address: e.target.value })} />
                 </label>
               </div>
-              <div className="mt-6 flex justify-end">
-                <button className="btn-primary" onClick={() => toast.success('Settings saved')}>
+              <div className="mt-6 flex flex-col-reverse sm:flex-row justify-end gap-3">
+                <button className="btn-primary w-full sm:w-auto" onClick={() => toast.success('Settings saved')}>
                   <FiCheck /> Save changes
                 </button>
               </div>

@@ -1,38 +1,39 @@
-import { useState } from 'react';
-import { FiEdit2, FiPlus, FiSearch, FiTrash2, FiActivity } from 'react-icons/fi';
+import { useState, useMemo } from 'react';
+import { FiEdit2, FiPlus, FiSearch, FiTrash2, FiActivity, FiFilter } from 'react-icons/fi';
 import toast from 'react-hot-toast';
 import PageHeader from '../components/common/PageHeader';
 import Modal from '../components/ui/Modal';
 import ConfirmDialog from '../components/ui/ConfirmDialog';
+import NumericInput from '../components/ui/NumericInput';
+import { TEST_MASTER, DEPARTMENTS, getParameterNames } from '../data/testMaster';
 
-const initialTests = [
-  { id: 'TST-001', name: 'Complete Blood Count', code: 'CBC', department: 'Hematology', price: 400, parameters: ['Hemoglobin', 'WBC Count', 'RBC Count', 'Platelet Count', 'MCV', 'MCH', 'MCHC', 'Neutrophils', 'Lymphocytes', 'Monocytes', 'Eosinophils', 'Basophils'], specimen: 'Whole Blood (EDTA)', method: 'Impedance / Flow cytometry', interpretation: 'CBC is used to evaluate overall health and detect a wide range of disorders including anemia, infection, and leukemia.', status: 'Active' },
-  { id: 'TST-002', name: 'Liver Function Test', code: 'LFT', department: 'Biochemistry', price: 700, parameters: ['Total Bilirubin', 'Direct Bilirubin', 'SGOT (AST)', 'SGPT (ALT)', 'Albumin', 'Total Protein', 'ALP', 'A/G Ratio'], specimen: 'Serum', method: 'Photometry', interpretation: 'LFT helps evaluate liver health by measuring enzymes, proteins, and bilirubin levels.', status: 'Active' },
-  { id: 'TST-003', name: 'Kidney Function Test', code: 'KFT', department: 'Biochemistry', price: 600, parameters: ['Urea', 'Creatinine', 'Uric Acid', 'Sodium', 'Potassium', 'Chloride', 'Calcium', 'eGFR'], specimen: 'Serum', method: 'Photometry / ISE', interpretation: 'KFT assesses kidney function by measuring waste products and electrolytes.', status: 'Active' },
-  { id: 'TST-004', name: 'Vitamin D (25-OH)', code: 'VITD', department: 'Immunoassay', price: 1200, parameters: ['Vitamin D (25-OH)'], specimen: 'Serum', method: 'CLIA', interpretation: 'Vitamin D is essential for bone health and immune function.', status: 'Active' },
-  { id: 'TST-005', name: 'HbA1c (Glycated Hemoglobin)', code: 'HBA1C', department: 'Biochemistry', price: 500, parameters: ['HbA1c', 'Estimated Average Glucose'], specimen: 'Whole Blood (EDTA)', method: 'HPLC', interpretation: 'HbA1c reflects average blood glucose over the past 2-3 months.', status: 'Active' },
-  { id: 'TST-006', name: 'Blood Sugar (Fasting & PP)', code: 'BS', department: 'Biochemistry', price: 200, parameters: ['Fasting Blood Sugar', 'Post Prandial Blood Sugar', 'Random Blood Sugar'], specimen: 'Serum / Plasma', method: 'Hexokinase', interpretation: 'Blood sugar levels help diagnose and monitor diabetes mellitus.', status: 'Active' },
-  { id: 'TST-007', name: 'Lipid Profile', code: 'LIPID', department: 'Biochemistry', price: 800, parameters: ['Total Cholesterol', 'Triglycerides', 'HDL Cholesterol', 'LDL Cholesterol', 'VLDL Cholesterol', 'Non HDL Cholesterol'], specimen: 'Serum (Fasting)', method: 'Enzymatic colorimetry', interpretation: 'Lipid profile measures cholesterol and triglycerides to assess cardiovascular risk.', status: 'Active' },
-  { id: 'TST-008', name: 'Thyroid Profile', code: 'TFT', department: 'Immunoassay', price: 850, parameters: ['T3 (Triiodothyronine)', 'T4 (Thyroxine)', 'TSH (Thyroid Stimulating Hormone)'], specimen: 'Serum', method: 'CLIA', interpretation: 'Thyroid profile evaluates thyroid gland function.', status: 'Active' },
-  { id: 'TST-009', name: 'Urine Routine & Microscopy', code: 'URINE', department: 'Clinical Pathology', price: 300, parameters: ['Color', 'Appearance', 'pH', 'Protein', 'Sugar', 'Ketones', 'Blood', 'Bilirubin', 'Pus Cells', 'RBCs', 'Casts', 'Crystals'], specimen: 'Urine (Mid-stream)', method: 'Dipstick / Microscopy', interpretation: 'Urine analysis helps detect urinary tract infections and kidney disease.', status: 'Active' },
-  { id: 'TST-010', name: 'Iron Profile', code: 'IRON', department: 'Biochemistry', price: 900, parameters: ['Serum Iron', 'Total Iron Binding Capacity', 'Transferrin Saturation', 'Ferritin'], specimen: 'Serum', method: 'Colorimetry', interpretation: 'Iron profile helps diagnose iron deficiency anemia and iron overload disorders.', status: 'Active' },
-  { id: 'TST-011', name: 'Dengue Profile', code: 'DENGUE', department: 'Immunoassay', price: 1100, parameters: ['Dengue NS1 Antigen', 'Dengue IgM Antibody', 'Dengue IgG Antibody'], specimen: 'Serum', method: 'ELISA / Rapid', interpretation: 'Dengue serology helps diagnose dengue virus infection.', status: 'Active' },
-  { id: 'TST-012', name: 'Electrolytes Panel', code: 'ELYTE', department: 'Biochemistry', price: 500, parameters: ['Sodium', 'Potassium', 'Chloride', 'Bicarbonate', 'Calcium', 'Magnesium'], specimen: 'Serum', method: 'ISE', interpretation: 'Electrolyte panel evaluates the balance of essential minerals in the body.', status: 'Active' },
-];
+// Build initial list from centralized master
+const buildInitialTests = () =>
+  TEST_MASTER.map((t, i) => ({
+    ...t,
+    id: `TST-${String(i + 1).padStart(3, '0')}`,
+    parameters: getParameterNames(t),
+  }));
 
-const departments = ['Hematology', 'Biochemistry', 'Immunoassay', 'Microbiology', 'Clinical Pathology', 'Coagulation', 'Molecular Biology'];
-const statuses = ['Active', 'Inactive'];
+const ALL_STATUSES = ['Active', 'Inactive'];
 
 export default function TestsPage() {
-  const [tests, setTests] = useState(initialTests);
+  const [tests, setTests] = useState(buildInitialTests);
   const [search, setSearch] = useState('');
+  const [deptFilter, setDeptFilter] = useState('');
   const [modalOpen, setModalOpen] = useState(false);
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [editing, setEditing] = useState(null);
   const [deleteId, setDeleteId] = useState(null);
 
-  const filtered = tests.filter(t =>
-    `${t.name} ${t.code} ${t.department}`.toLowerCase().includes(search.toLowerCase())
+  const filtered = useMemo(() =>
+    tests.filter(t => {
+      const q = search.toLowerCase();
+      const matchSearch = !q || `${t.name} ${t.code} ${t.department}`.toLowerCase().includes(q);
+      const matchDept = !deptFilter || t.department === deptFilter;
+      return matchSearch && matchDept;
+    }),
+    [tests, search, deptFilter]
   );
 
   const openAdd = () => { setEditing(null); setModalOpen(true); };
@@ -58,101 +59,176 @@ export default function TestsPage() {
     setModalOpen(false);
   };
 
+  // All departments present in current list
+  const activeDepts = useMemo(() => {
+    const depts = [...new Set(tests.map(t => t.department))].sort();
+    return depts;
+  }, [tests]);
+
   return (
     <>
       <PageHeader
         title="Test Master"
-        description="Configure laboratory investigations, departments, pricing and result templates."
+        description={`${tests.length} laboratory investigations configured across ${activeDepts.length} departments.`}
         action={
-          <button className="btn-primary" onClick={openAdd}>
+          <button className="btn-primary w-full sm:w-auto" onClick={openAdd}>
             <FiPlus /> Add Test
           </button>
         }
       />
 
       <div className="card overflow-hidden">
-        <div className="flex flex-col gap-3 border-b border-slate-200 p-5 dark:border-slate-700 md:flex-row md:items-center md:justify-between">
-          <div className="relative max-w-md flex-1">
-            <FiSearch className="absolute left-3 top-3 text-slate-400" />
-            <input className="field pl-9" value={search} onChange={e => setSearch(e.target.value)} placeholder="Search by test name, code or department..." />
+        {/* Filters */}
+        <div className="flex flex-col gap-3 border-b border-slate-200 p-4 dark:border-slate-700 sm:p-5 md:flex-row md:items-center md:justify-between">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center flex-1">
+            <div className="relative flex-1 max-w-full sm:max-w-sm">
+              <FiSearch className="absolute left-3 top-3 text-slate-400" />
+              <input
+                className="field pl-9"
+                value={search}
+                onChange={e => setSearch(e.target.value)}
+                placeholder="Search test name, code or department..."
+              />
+            </div>
+            <div className="relative flex items-center gap-2">
+              <FiFilter className="text-slate-400 shrink-0" size={14} />
+              <select
+                className="field py-2.5 pr-8"
+                value={deptFilter}
+                onChange={e => setDeptFilter(e.target.value)}
+              >
+                <option value="">All Departments</option>
+                {activeDepts.map(d => <option key={d}>{d}</option>)}
+              </select>
+            </div>
           </div>
-          <p className="text-xs text-slate-400">{filtered.length} tests configured</p>
+          <p className="text-xs text-slate-400 shrink-0">{filtered.length} of {tests.length} tests</p>
         </div>
 
+        {/* Table */}
         <div className="overflow-x-auto">
-          <table className="w-full text-left text-sm">
+          <table className="w-full min-w-[640px] text-left text-sm">
             <thead className="bg-slate-50 text-xs uppercase tracking-wide text-slate-500 dark:bg-slate-800/50 dark:text-slate-400">
               <tr>
-                {['Test Name', 'Code', 'Department', 'Price', 'Parameters', 'Specimen', 'Status', ''].map(h => (
-                  <th key={h} className="px-5 py-3 font-semibold">{h}</th>
+                {['#', 'Test Name', 'Code', 'Department', 'Price', 'Params', 'Specimen', 'Status', ''].map(h => (
+                  <th key={h} className="px-4 py-3 font-semibold whitespace-nowrap">{h}</th>
                 ))}
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
-              {filtered.map(t => (
-                <tr key={t.id} className="hover:bg-slate-50/70 dark:hover:bg-slate-800/30">
-                  <td className="px-5 py-4">
-                    <p className="font-semibold text-slate-800 dark:text-slate-200">{t.name}</p>
-                  </td>
-                  <td className="px-5 font-mono text-xs font-medium text-blue-600">{t.code}</td>
-                  <td className="px-5 text-slate-500">{t.department}</td>
-                  <td className="px-5 font-mono font-semibold text-slate-700 dark:text-slate-300">₹{t.price?.toLocaleString('en-IN')}</td>
-                  <td className="px-5 text-slate-500">{t.parameters?.length || 0} params</td>
-                  <td className="px-5 text-xs text-slate-400">{t.specimen || '—'}</td>
-                  <td className="px-5">
-                    <span className={`inline-flex rounded-full px-2.5 py-1 text-xs font-semibold ring-1 ring-inset ${t.status === 'Active' ? 'bg-emerald-50 text-emerald-700 ring-emerald-600/10 dark:bg-emerald-900/30 dark:text-emerald-400' : 'bg-slate-100 text-slate-500 ring-slate-200 dark:bg-slate-800 dark:text-slate-400'}`}>
-                      {t.status}
-                    </span>
-                  </td>
-                  <td className="px-5">
-                    <div className="flex gap-1">
-                      <button onClick={() => openEdit(t)} className="rounded-lg p-2 text-slate-400 hover:bg-blue-50 hover:text-blue-600 dark:hover:bg-blue-900/30"><FiEdit2 size={14} /></button>
-                      <button onClick={() => confirmDelete(t.id)} className="rounded-lg p-2 text-slate-400 hover:bg-rose-50 hover:text-rose-600 dark:hover:bg-rose-900/30"><FiTrash2 size={14} /></button>
-                    </div>
+              {filtered.length === 0 ? (
+                <tr>
+                  <td colSpan={9} className="px-4 py-12 text-center text-sm text-slate-400">
+                    No tests found. Try adjusting your search.
                   </td>
                 </tr>
-              ))}
+              ) : (
+                filtered.map((t, idx) => (
+                  <tr key={t.id} className="hover:bg-slate-50/70 dark:hover:bg-slate-800/30 transition-colors">
+                    <td className="px-4 py-3 font-mono text-[11px] text-slate-400">{idx + 1}</td>
+                    <td className="px-4 py-3">
+                      <p className="font-semibold text-slate-800 dark:text-slate-200 leading-tight">{t.name}</p>
+                      {t.specimen && <p className="text-[11px] text-slate-400 mt-0.5 hidden sm:block">{t.specimen}</p>}
+                    </td>
+                    <td className="px-4 py-3 font-mono text-xs font-medium text-blue-600 whitespace-nowrap">{t.code}</td>
+                    <td className="px-4 py-3 text-slate-500 whitespace-nowrap text-xs">{t.department}</td>
+                    <td className="px-4 py-3 font-mono font-semibold text-slate-700 dark:text-slate-300 whitespace-nowrap">
+                      ₹{(t.price || 0).toLocaleString('en-IN')}
+                    </td>
+                    <td className="px-4 py-3 text-slate-500 whitespace-nowrap">
+                      <span className="inline-flex items-center rounded-full bg-slate-100 px-2 py-0.5 text-[11px] font-medium dark:bg-slate-800">
+                        {Array.isArray(t.parameters) ? t.parameters.length : 0} params
+                      </span>
+                    </td>
+                    <td className="px-4 py-3 text-xs text-slate-400 max-w-[140px] truncate hidden lg:table-cell">{t.specimen || '—'}</td>
+                    <td className="px-4 py-3">
+                      <span className={`inline-flex rounded-full px-2.5 py-1 text-xs font-semibold ring-1 ring-inset ${
+                        t.status === 'Active'
+                          ? 'bg-emerald-50 text-emerald-700 ring-emerald-600/10 dark:bg-emerald-900/30 dark:text-emerald-400'
+                          : 'bg-slate-100 text-slate-500 ring-slate-200 dark:bg-slate-800 dark:text-slate-400'
+                      }`}>
+                        {t.status}
+                      </span>
+                    </td>
+                    <td className="px-4 py-3">
+                      <div className="flex gap-1">
+                        <button
+                          onClick={() => openEdit(t)}
+                          className="rounded-lg p-2 text-slate-400 hover:bg-blue-50 hover:text-blue-600 dark:hover:bg-blue-900/30 transition-colors"
+                          title="Edit test"
+                        >
+                          <FiEdit2 size={14} />
+                        </button>
+                        <button
+                          onClick={() => confirmDelete(t.id)}
+                          className="rounded-lg p-2 text-slate-400 hover:bg-rose-50 hover:text-rose-600 dark:hover:bg-rose-900/30 transition-colors"
+                          title="Delete test"
+                        >
+                          <FiTrash2 size={14} />
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))
+              )}
             </tbody>
           </table>
         </div>
       </div>
 
-      <TestFormModal open={modalOpen} onClose={() => setModalOpen(false)} onSave={handleSave} initial={editing} departments={departments} statuses={statuses} />
-      <ConfirmDialog open={confirmOpen} onClose={() => setConfirmOpen(false)} onConfirm={handleDelete} title="Delete test" message="This will permanently remove this test from the catalog." />
+      <TestFormModal
+        open={modalOpen}
+        onClose={() => setModalOpen(false)}
+        onSave={handleSave}
+        initial={editing}
+        departments={DEPARTMENTS}
+        statuses={ALL_STATUSES}
+      />
+      <ConfirmDialog
+        open={confirmOpen}
+        onClose={() => setConfirmOpen(false)}
+        onConfirm={handleDelete}
+        title="Delete test"
+        message="This will permanently remove this test from the catalog."
+      />
     </>
   );
 }
 
 function TestFormModal({ open, onClose, onSave, initial, departments, statuses }) {
   const [form, setForm] = useState(
-    initial || {
-      name: '', code: '', department: 'Biochemistry', price: '', parameters: '',
-      specimen: '', method: '', interpretation: '', status: 'Active'
-    }
+    initial
+      ? { ...initial, parameters: Array.isArray(initial.parameters) ? initial.parameters.join(', ') : initial.parameters }
+      : { name: '', code: '', department: 'Biochemistry', price: '', parameters: '', specimen: '', method: '', interpretation: '', status: 'Active' }
   );
+  const [priceStr, setPriceStr] = useState(initial ? String(initial.price || '') : '');
 
   const set = (field, value) => setForm(prev => ({ ...prev, [field]: value }));
+
   const handleSubmit = (e) => {
     e.preventDefault();
-    if (!form.name || !form.code) return toast.error('Test name and code are required');
+    if (!form.name.trim()) return toast.error('Test name is required');
+    if (!form.code.trim()) return toast.error('Test code is required');
+    const price = Number(priceStr);
+    if (priceStr !== '' && (isNaN(price) || price < 0)) return toast.error('Price must be a positive number');
     onSave({
       ...form,
-      price: Number(form.price) || 0,
+      price: priceStr === '' ? 0 : price,
       parameters: form.parameters ? form.parameters.split(',').map(p => p.trim()).filter(Boolean) : [],
     });
   };
 
   return (
-    <Modal open={open} onClose={onClose} title={initial ? 'Edit test' : 'Add new test'} size="lg">
+    <Modal open={open} onClose={onClose} title={initial ? 'Edit Test' : 'Add New Test'} size="lg">
       <form onSubmit={handleSubmit} className="space-y-4">
-        <div className="grid gap-4 md:grid-cols-2">
-          <label className="md:col-span-2">
-            <span className="label">Test name</span>
+        <div className="grid gap-4 sm:grid-cols-2">
+          <label className="sm:col-span-2">
+            <span className="label">Test Name</span>
             <input className="field" value={form.name} onChange={e => set('name', e.target.value)} placeholder="e.g. Complete Blood Count" required />
           </label>
           <label>
-            <span className="label">Test code</span>
-            <input className="field" value={form.code} onChange={e => set('code', e.target.value)} placeholder="e.g. CBC" required />
+            <span className="label">Test Code</span>
+            <input className="field" value={form.code} onChange={e => set('code', e.target.value.toUpperCase())} placeholder="e.g. CBC" required />
           </label>
           <label>
             <span className="label">Department</span>
@@ -162,7 +238,12 @@ function TestFormModal({ open, onClose, onSave, initial, departments, statuses }
           </label>
           <label>
             <span className="label">Price (₹)</span>
-            <input className="field" type="number" value={form.price} onChange={e => set('price', e.target.value)} placeholder="0" />
+            <NumericInput
+              value={priceStr}
+              onChange={setPriceStr}
+              placeholder="e.g. 500"
+              min={0}
+            />
           </label>
           <label>
             <span className="label">Status</span>
@@ -170,30 +251,35 @@ function TestFormModal({ open, onClose, onSave, initial, departments, statuses }
               {statuses.map(s => <option key={s}>{s}</option>)}
             </select>
           </label>
-          <label className="md:col-span-2">
+          <label className="sm:col-span-2">
             <span className="label">Parameters (comma-separated)</span>
-            <input className="field" value={Array.isArray(form.parameters) ? form.parameters.join(', ') : form.parameters} onChange={e => set('parameters', e.target.value)} placeholder="Hemoglobin, WBC Count, RBC Count..." />
+            <input
+              className="field"
+              value={form.parameters}
+              onChange={e => set('parameters', e.target.value)}
+              placeholder="Hemoglobin, WBC Count, RBC Count..."
+            />
           </label>
           <label>
-            <span className="label">Specimen type</span>
+            <span className="label">Specimen Type</span>
             <input className="field" value={form.specimen || ''} onChange={e => set('specimen', e.target.value)} placeholder="e.g. Whole Blood (EDTA)" />
           </label>
           <label>
             <span className="label">Method</span>
             <input className="field" value={form.method || ''} onChange={e => set('method', e.target.value)} placeholder="e.g. Impedance / Flow cytometry" />
           </label>
-          <label className="md:col-span-2">
-            <span className="label">Interpretation</span>
-            <textarea className="field h-20" value={form.interpretation || ''} onChange={e => set('interpretation', e.target.value)} placeholder="Clinical interpretation of this test..." />
+          <label className="sm:col-span-2">
+            <span className="label">Clinical Interpretation</span>
+            <textarea className="field h-20 resize-none" value={form.interpretation || ''} onChange={e => set('interpretation', e.target.value)} placeholder="Clinical interpretation of this test..." />
           </label>
         </div>
-        <div className="flex justify-end gap-3 border-t border-slate-200 pt-4 dark:border-slate-700">
-          <button type="button" onClick={onClose} className="btn-secondary">Cancel</button>
-          <button type="submit" className="btn-primary"><FiActivity size={16} /> {initial ? 'Update' : 'Add'} test</button>
+        <div className="flex flex-col-reverse sm:flex-row justify-end gap-3 border-t border-slate-200 pt-4 dark:border-slate-700">
+          <button type="button" onClick={onClose} className="btn-secondary w-full sm:w-auto">Cancel</button>
+          <button type="submit" className="btn-primary w-full sm:w-auto">
+            <FiActivity size={16} /> {initial ? 'Update' : 'Add'} Test
+          </button>
         </div>
       </form>
     </Modal>
   );
 }
-
-

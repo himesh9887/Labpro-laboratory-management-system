@@ -3,13 +3,20 @@ import { FiChevronLeft, FiChevronRight, FiLogOut } from 'react-icons/fi';
 import { useAuth } from '../../context/AuthContext';
 import { navigation } from '../../constants/navigation';
 import { useApp } from '../../context/AppContext';
+
 export default function Sidebar() {
   const { sidebarOpen, setSidebarOpen } = useApp();
   const { user, logout } = useAuth();
   const navigate = useNavigate();
   const handleSignOut = () => { logout(); navigate('/login'); };
+
   return (
-    <aside className={`fixed inset-y-0 left-0 z-40 flex flex-col border-r bg-slate-950 transition-all duration-300 ${sidebarOpen ? 'w-72' : 'w-20'} border-slate-800`}>
+    // hidden on mobile/tablet, flex on lg+
+    <aside
+      className={`hidden lg:flex fixed inset-y-0 left-0 z-40 flex-col border-r bg-slate-950 transition-all duration-300 ${
+        sidebarOpen ? 'w-72' : 'w-20'
+      } border-slate-800`}
+    >
       {/* Logo */}
       <div className={`flex items-center px-4 py-5 ${sidebarOpen ? 'justify-between' : 'justify-center'}`}>
         <div className={`flex items-center ${sidebarOpen ? 'gap-3' : 'gap-0 flex-col'}`}>
@@ -21,7 +28,12 @@ export default function Sidebar() {
             </div>
           )}
         </div>
-        <button onClick={() => setSidebarOpen(!sidebarOpen)} className={`rounded-lg p-2 text-slate-400 hover:bg-white/10 transition-all ${sidebarOpen ? '' : 'absolute -right-3 top-7 bg-slate-800 border border-slate-700'}`}>
+        <button
+          onClick={() => setSidebarOpen(!sidebarOpen)}
+          className={`rounded-lg p-2 text-slate-400 hover:bg-white/10 transition-all ${
+            sidebarOpen ? '' : 'absolute -right-3 top-7 bg-slate-800 border border-slate-700'
+          }`}
+        >
           {sidebarOpen ? <FiChevronLeft /> : <FiChevronRight />}
         </button>
       </div>
@@ -33,7 +45,11 @@ export default function Sidebar() {
             key={to}
             to={to}
             className={({ isActive }) =>
-              `flex items-center ${sidebarOpen ? 'gap-3 px-3' : 'justify-center px-0'} rounded-xl py-3 text-sm font-medium transition-all ${isActive ? 'bg-blue-600 text-white shadow-lg shadow-blue-950/40' : 'text-slate-400 hover:bg-white/5 hover:text-white'}`
+              `flex items-center ${sidebarOpen ? 'gap-3 px-3' : 'justify-center px-0'} rounded-xl py-3 text-sm font-medium transition-all ${
+                isActive
+                  ? 'bg-blue-600 text-white shadow-lg shadow-blue-950/40'
+                  : 'text-slate-400 hover:bg-white/5 hover:text-white'
+              }`
             }
             title={!sidebarOpen ? label : undefined}
           >
@@ -59,7 +75,9 @@ export default function Sidebar() {
           </div>
           <button
             onClick={handleSignOut}
-            className={`flex items-center ${sidebarOpen ? 'w-full gap-2 px-2 py-2' : 'justify-center p-2'} rounded-lg text-xs font-medium text-slate-400 hover:bg-white/10 hover:text-white transition-all`}
+            className={`flex items-center ${
+              sidebarOpen ? 'w-full gap-2 px-2 py-2' : 'justify-center p-2'
+            } rounded-lg text-xs font-medium text-slate-400 hover:bg-white/10 hover:text-white transition-all`}
             title={!sidebarOpen ? 'Sign out' : undefined}
           >
             <FiLogOut className="shrink-0" />

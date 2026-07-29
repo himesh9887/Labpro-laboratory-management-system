@@ -58,7 +58,7 @@ export default function StaffPage() {
       <PageHeader
         title="Staff management"
         description="Manage laboratory personnel, roles and access permissions."
-        action={<button className="btn-primary" onClick={openAdd}><FiPlus /> Add staff</button>}
+        action={<button className="btn-primary w-full sm:w-auto" onClick={openAdd}><FiPlus /> Add staff</button>}
       />
 
       <div className="card overflow-hidden">
@@ -68,11 +68,11 @@ export default function StaffPage() {
         </div>
 
         <div className="overflow-x-auto">
-          <table className="w-full text-left text-sm">
+          <table className="w-full min-w-[640px] text-left text-sm">
             <thead className="bg-slate-50 text-xs uppercase tracking-wide text-slate-500 dark:bg-slate-800/50">
               <tr>
                 {['ID', 'Name', 'Role', 'Department', 'Email', 'Phone', 'Status', ''].map(h => (
-                  <th key={h} className="px-5 py-3 font-semibold">{h}</th>
+                  <th key={h} className="px-4 py-3 font-semibold whitespace-nowrap">{h}</th>
                 ))}
               </tr>
             </thead>

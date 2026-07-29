@@ -1,5 +1,5 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
-import { FiDollarSign, FiDownload, FiEye, FiFileText, FiPlus, FiPrinter, FiSearch, FiTrash2, FiUser, FiCheck } from 'react-icons/fi';
+import { useMemo, useRef, useState } from 'react';
+import { FiDollarSign, FiDownload, FiEye, FiFileText, FiPlus, FiPrinter, FiSearch, FiTrash2, FiCheck } from 'react-icons/fi';
 import { Link } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import html2canvas from 'html2canvas';
@@ -7,66 +7,13 @@ import { jsPDF } from 'jspdf';
 import PageHeader from '../components/common/PageHeader';
 import Modal from '../components/ui/Modal';
 import ConfirmDialog from '../components/ui/ConfirmDialog';
-import StatusBadge from '../components/common/StatusBadge';
+import NumericInput from '../components/ui/NumericInput';
+import { invoiceCatalog } from '../data/testMaster';
 
-const GST_RATE = 0.18; // 18%
-
-const testCatalog = [
-  { id: 'CBC', name: 'Complete Blood Count', price: 400 },
-  { id: 'LFT', name: 'Liver Function Test', price: 700 },
-  { id: 'KFT', name: 'Kidney Function Test', price: 600 },
-  { id: 'VITD', name: 'Vitamin D (25-OH)', price: 1200 },
-  { id: 'HBA1C', name: 'HbA1c (Glycated Hemoglobin)', price: 500 },
-  { id: 'BS', name: 'Blood Sugar (Fasting & PP)', price: 200 },
-  { id: 'LIPID', name: 'Lipid Profile', price: 800 },
-  { id: 'TFT', name: 'Thyroid Profile', price: 850 },
-  { id: 'URINE', name: 'Urine Routine & Microscopy', price: 300 },
-  { id: 'IRON', name: 'Iron Profile', price: 900 },
-  { id: 'DENGUE', name: 'Dengue Profile', price: 1100 },
-  { id: 'ELYTE', name: 'Electrolytes Panel', price: 500 },
-  { id: 'CRP', name: 'C-Reactive Protein', price: 400 },
-  { id: 'ESR', name: 'Erythrocyte Sedimentation Rate', price: 250 },
-  { id: 'PTINR', name: 'PT / INR', price: 350 },
-  { id: 'DDIMER', name: 'D-Dimer', price: 1500 },
-  { id: 'TROP', name: 'Troponin I (High Sensitivity)', price: 1800 },
-  { id: 'CKMB', name: 'CK-MB', price: 600 },
-  { id: 'AMYLASE', name: 'Amylase', price: 400 },
-  { id: 'LIPASE', name: 'Lipase', price: 400 },
-  { id: 'PCT', name: 'Procalcitonin', price: 2000 },
-  { id: 'HIV', name: 'HIV 1 & 2 (Antibody)', price: 500 },
-  { id: 'HBSAG', name: 'HBsAg (Hepatitis B)', price: 400 },
-  { id: 'HCV', name: 'Anti-HCV (Hepatitis C)', price: 500 },
-  { id: 'MALARIA', name: 'Malaria Antigen', price: 350 },
-  { id: 'TYPHOID', name: 'Typhoid (Widal Test)', price: 300 },
-  { id: 'PSA', name: 'PSA (Total & Free)', price: 1200 },
-  { id: 'FERRITIN', name: 'Ferritin', price: 600 },
-  { id: 'VITB12', name: 'Vitamin B12', price: 800 },
-  { id: 'CORTISOL', name: 'Cortisol (AM/PM)', price: 1000 },
-  { id: 'INSULIN', name: 'Insulin (Fasting)', price: 700 },
-  { id: 'TESTO', name: 'Testosterone (Total)', price: 900 },
-  { id: 'PROLACTIN', name: 'Prolactin', price: 700 },
-  { id: 'FSH', name: 'FSH', price: 800 },
-  { id: 'LH', name: 'LH', price: 800 },
-  { id: 'BHCG', name: 'Pregnancy Test (b-hCG)', price: 450 },
-  { id: 'CA', name: 'Calcium (Serum)', price: 200 },
-  { id: 'MG', name: 'Magnesium (Serum)', price: 200 },
-  { id: 'PHOS', name: 'Phosphorus (Serum)', price: 200 },
-  { id: 'URIC', name: 'Uric Acid', price: 250 },
-  { id: 'LDH', name: 'LDH (Lactate Dehydrogenase)', price: 500 },
-  { id: 'CK', name: 'Creatine Kinase (CK)', price: 600 },
-  { id: 'VDRL', name: 'VDRL (Syphilis)', price: 300 },
-  { id: 'ASO', name: 'ASO Titre', price: 400 },
-  { id: 'RF', name: 'Rheumatoid Factor', price: 500 },
-  { id: 'ANA', name: 'ANA (Antinuclear Antibody)', price: 1200 },
-  { id: 'IGE', name: 'IgE (Total)', price: 800 },
-  { id: 'STOOL', name: 'Stool Routine & Microscopy', price: 250 },
-  { id: 'SEMEN', name: 'Semen Analysis', price: 600 },
-  { id: 'BLOODGROUP', name: 'Blood Group & Rh Type', price: 200 },
-];
+const GST_RATE = 0.18;
 
 const paymentModes = ['Cash', 'UPI', 'Card', 'Bank Transfer', 'Credit'];
 
-// Invoice status timeline
 const timelineSteps = [
   { key: 'created', label: 'Invoice Created' },
   { key: 'payment', label: 'Payment Received' },
@@ -80,7 +27,8 @@ const timelineSteps = [
 
 let invoiceCounter = 1;
 
-const formatCurrency = (n) => `₹${Number(n || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+const formatCurrency = (n) =>
+  `₹${Number(n || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
 export default function InvoicePage() {
   const [invoices, setInvoices] = useState([]);
@@ -119,9 +67,7 @@ export default function InvoicePage() {
 
   const handlePrint = (invoice) => {
     setPreviewInvoice(invoice);
-    setTimeout(() => {
-      window.print();
-    }, 300);
+    setTimeout(() => { window.print(); }, 300);
   };
 
   const handleDownload = async (invoice) => {
@@ -160,11 +106,9 @@ export default function InvoicePage() {
         title="Invoice & Billing"
         description="Create invoices, manage payments, and track report status."
         action={
-          <div className="flex gap-2">
-            <button className="btn-primary" onClick={() => { setShowCreate(true); setPreviewInvoice(null); }}>
-              <FiPlus /> New Invoice
-            </button>
-          </div>
+          <button className="btn-primary w-full sm:w-auto" onClick={() => { setShowCreate(true); setPreviewInvoice(null); }}>
+            <FiPlus /> New Invoice
+          </button>
         }
       />
 
@@ -173,35 +117,41 @@ export default function InvoicePage() {
         <div className="card p-5">
           <FiDollarSign className="text-xl text-blue-600" />
           <p className="mt-3 text-sm text-slate-500 dark:text-slate-400">Total Revenue</p>
-          <p className="mt-1 font-mono text-2xl font-semibold text-slate-900 dark:text-white">{formatCurrency(totalRevenue)}</p>
+          <p className="mt-1 font-mono text-xl font-semibold text-slate-900 dark:text-white">{formatCurrency(totalRevenue)}</p>
         </div>
         <div className="card p-5">
           <FiDollarSign className="text-xl text-amber-600" />
           <p className="mt-3 text-sm text-slate-500 dark:text-slate-400">Pending Amount</p>
-          <p className="mt-1 font-mono text-2xl font-semibold text-slate-900 dark:text-white">{formatCurrency(pendingAmount)}</p>
+          <p className="mt-1 font-mono text-xl font-semibold text-slate-900 dark:text-white">{formatCurrency(pendingAmount)}</p>
         </div>
         <div className="card p-5">
           <FiFileText className="text-xl text-violet-600" />
           <p className="mt-3 text-sm text-slate-500 dark:text-slate-400">Total Invoices</p>
-          <p className="mt-1 font-mono text-2xl font-semibold text-slate-900 dark:text-white">{invoices.length}</p>
+          <p className="mt-1 font-mono text-xl font-semibold text-slate-900 dark:text-white">{invoices.length}</p>
         </div>
       </div>
 
       {/* Invoice List */}
       <div className="card mt-6 overflow-hidden">
-        <div className="flex flex-col gap-3 border-b border-slate-200 p-5 dark:border-slate-700 md:flex-row md:items-center md:justify-between">
-          <div className="relative max-w-md flex-1">
+        <div className="flex flex-col gap-3 border-b border-slate-200 p-4 dark:border-slate-700 sm:p-5 md:flex-row md:items-center md:justify-between">
+          <div className="relative max-w-full flex-1 md:max-w-sm">
             <FiSearch className="absolute left-3 top-3 text-slate-400" />
-            <input className="field pl-9" value={search} onChange={e => setSearch(e.target.value)} placeholder="Search by invoice no, patient or phone..." />
+            <input
+              className="field pl-9"
+              value={search}
+              onChange={e => setSearch(e.target.value)}
+              placeholder="Search by invoice no, patient or phone..."
+            />
           </div>
-          <p className="text-xs text-slate-400">{filtered.length} invoices</p>
+          <p className="text-xs text-slate-400 shrink-0">{filtered.length} invoices</p>
         </div>
+
         <div className="overflow-x-auto">
-          <table className="w-full text-left text-sm">
+          <table className="w-full min-w-[700px] text-left text-sm">
             <thead className="bg-slate-50 text-xs uppercase tracking-wide text-slate-500 dark:bg-slate-800/50 dark:text-slate-400">
               <tr>
                 {['Invoice', 'Patient', 'Tests', 'Total', 'Paid', 'Due', 'Status', ''].map(h => (
-                  <th key={h} className="px-5 py-3 font-semibold">{h}</th>
+                  <th key={h} className="px-4 py-3 font-semibold whitespace-nowrap">{h}</th>
                 ))}
               </tr>
             </thead>
@@ -209,49 +159,49 @@ export default function InvoicePage() {
               {filtered.length === 0 ? (
                 <tr>
                   <td colSpan={8} className="px-5 py-12 text-center text-sm text-slate-400">
-                    No invoices yet. Click "New Invoice" to create one.
+                    No invoices yet. Click &ldquo;New Invoice&rdquo; to create one.
                   </td>
                 </tr>
               ) : (
                 filtered.map(inv => {
                   const due = (inv.dueAmount || 0) > 0;
                   return (
-                    <tr key={inv.invoiceNo} className="hover:bg-slate-50/70 dark:hover:bg-slate-800/30">
-                      <td className="px-5 py-4 font-mono text-xs font-medium text-blue-600">{inv.invoiceNo}</td>
-                      <td className="px-5">
+                    <tr key={inv.invoiceNo} className="hover:bg-slate-50/70 dark:hover:bg-slate-800/30 transition-colors">
+                      <td className="px-4 py-4 font-mono text-xs font-medium text-blue-600 whitespace-nowrap">{inv.invoiceNo}</td>
+                      <td className="px-4 py-4">
                         <p className="font-semibold text-slate-800 dark:text-slate-200">{inv.patientName}</p>
-                        <p className="text-xs text-slate-400">{inv.phone} · {inv.gender}, {inv.age}Y</p>
+                        <p className="text-xs text-slate-400">{inv.phone}{inv.age ? ` · ${inv.age}Y` : ''}</p>
                       </td>
-                      <td className="px-5 text-xs text-slate-500 max-w-[200px] truncate">
+                      <td className="px-4 py-4 text-xs text-slate-500 max-w-[160px] truncate">
                         {inv.selectedTests?.map(t => t.name).join(', ')}
                       </td>
-                      <td className="px-5 font-mono font-semibold text-slate-700 dark:text-slate-300">{formatCurrency(inv.grandTotal)}</td>
-                      <td className="px-5 font-mono text-emerald-600">{formatCurrency(inv.paidAmount)}</td>
-                      <td className="px-5 font-mono text-rose-600">{formatCurrency(inv.dueAmount)}</td>
-                      <td className="px-5">
+                      <td className="px-4 py-4 font-mono font-semibold text-slate-700 dark:text-slate-300 whitespace-nowrap">{formatCurrency(inv.grandTotal)}</td>
+                      <td className="px-4 py-4 font-mono text-emerald-600 whitespace-nowrap">{formatCurrency(inv.paidAmount)}</td>
+                      <td className="px-4 py-4 font-mono text-rose-600 whitespace-nowrap">{formatCurrency(inv.dueAmount)}</td>
+                      <td className="px-4 py-4">
                         {due ? (
-                          <span className="inline-flex rounded-full px-2.5 py-1 text-xs font-semibold bg-amber-50 text-amber-700 ring-1 ring-amber-600/10 dark:bg-amber-900/30 dark:text-amber-400">Pending</span>
+                          <span className="inline-flex rounded-full px-2.5 py-1 text-xs font-semibold bg-amber-50 text-amber-700 ring-1 ring-amber-600/10 dark:bg-amber-900/30 dark:text-amber-400 whitespace-nowrap">Pending</span>
                         ) : (
-                          <span className="inline-flex rounded-full px-2.5 py-1 text-xs font-semibold bg-emerald-50 text-emerald-700 ring-1 ring-emerald-600/10 dark:bg-emerald-900/30 dark:text-emerald-400">Paid</span>
+                          <span className="inline-flex rounded-full px-2.5 py-1 text-xs font-semibold bg-emerald-50 text-emerald-700 ring-1 ring-emerald-600/10 dark:bg-emerald-900/30 dark:text-emerald-400 whitespace-nowrap">Paid</span>
                         )}
                       </td>
-                      <td className="px-5">
+                      <td className="px-4 py-4">
                         <div className="flex gap-1">
-                          <button onClick={() => setPreviewInvoice(inv)} className="rounded-lg p-2 text-slate-400 hover:bg-blue-50 hover:text-blue-600 dark:hover:bg-blue-900/30" title="Preview">
+                          <button onClick={() => setPreviewInvoice(inv)} className="rounded-lg p-2 text-slate-400 hover:bg-blue-50 hover:text-blue-600 dark:hover:bg-blue-900/30 transition-colors" title="Preview">
                             <FiEye size={14} />
                           </button>
-                          <button onClick={() => handlePrint(inv)} className="rounded-lg p-2 text-slate-400 hover:bg-violet-50 hover:text-violet-600 dark:hover:bg-violet-900/30" title="Print">
+                          <button onClick={() => handlePrint(inv)} className="rounded-lg p-2 text-slate-400 hover:bg-violet-50 hover:text-violet-600 dark:hover:bg-violet-900/30 transition-colors" title="Print">
                             <FiPrinter size={14} />
                           </button>
-                          <button onClick={() => handleDownload(inv)} className="rounded-lg p-2 text-slate-400 hover:bg-emerald-50 hover:text-emerald-600 dark:hover:bg-emerald-900/30" title="Download PDF">
+                          <button onClick={() => handleDownload(inv)} className="rounded-lg p-2 text-slate-400 hover:bg-emerald-50 hover:text-emerald-600 dark:hover:bg-emerald-900/30 transition-colors" title="Download PDF">
                             <FiDownload size={14} />
                           </button>
                           {due && (
-                            <button onClick={() => setShowTimeline(inv)} className="rounded-lg p-2 text-slate-400 hover:bg-amber-50 hover:text-amber-600 dark:hover:bg-amber-900/30" title="Update Status">
+                            <button onClick={() => setShowTimeline(inv)} className="rounded-lg p-2 text-slate-400 hover:bg-amber-50 hover:text-amber-600 dark:hover:bg-amber-900/30 transition-colors" title="Update Status">
                               <FiFileText size={14} />
                             </button>
                           )}
-                          <button onClick={() => { setConfirmId(inv.invoiceNo); }} className="rounded-lg p-2 text-slate-400 hover:bg-rose-50 hover:text-rose-600 dark:hover:bg-rose-900/30" title="Delete">
+                          <button onClick={() => setConfirmId(inv.invoiceNo)} className="rounded-lg p-2 text-slate-400 hover:bg-rose-50 hover:text-rose-600 dark:hover:bg-rose-900/30 transition-colors" title="Delete">
                             <FiTrash2 size={14} />
                           </button>
                         </div>
@@ -265,19 +215,16 @@ export default function InvoicePage() {
         </div>
       </div>
 
-      {/* Create Invoice Modal */}
       <CreateInvoiceModal
         open={showCreate}
         onClose={() => setShowCreate(false)}
         onSave={handleCreateInvoice}
       />
 
-      {/* Preview Modal */}
       <Modal open={previewInvoice !== null} onClose={() => setPreviewInvoice(null)} title={`Invoice ${previewInvoice?.invoiceNo || ''}`} size="xl">
         {previewInvoice && <InvoicePreviewHTML invoice={previewInvoice} />}
       </Modal>
 
-      {/* Timeline Modal */}
       <TimelineModal
         invoice={showTimeline}
         onClose={() => setShowTimeline(null)}
@@ -295,37 +242,40 @@ export default function InvoicePage() {
   );
 }
 
+// ─────────────────────────────────────────────────────────
+// Create Invoice Modal (3-step wizard)
+// ─────────────────────────────────────────────────────────
 function CreateInvoiceModal({ open, onClose, onSave }) {
-  const [step, setStep] = useState(1); // 1: Patient, 2: Tests, 3: Payment
+  const [step, setStep] = useState(1);
   const [patientForm, setPatientForm] = useState({ name: '', age: '', gender: 'Male', phone: '', doctor: '', address: '' });
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedTests, setSelectedTests] = useState([]);
-  const [discount, setDiscount] = useState(0);
-  const [discountType, setDiscountType] = useState('percentage'); // percentage or flat
+  const [discountStr, setDiscountStr] = useState('');
+  const [discountType, setDiscountType] = useState('percentage');
   const [paymentMode, setPaymentMode] = useState('Cash');
-  const [paidAmount, setPaidAmount] = useState(0);
+  const [paidStr, setPaidStr] = useState('');
 
-  // Filter tests based on search
-  const filteredTests = testCatalog.filter(t =>
+  // Test search
+  const filteredTests = invoiceCatalog.filter(t =>
     `${t.name} ${t.id}`.toLowerCase().includes(searchQuery.toLowerCase()) &&
     !selectedTests.some(s => s.id === t.id)
   );
 
   const addTest = (test) => {
-    setSelectedTests(prev => [...prev, { ...test, overridePrice: test.price }]);
+    setSelectedTests(prev => [...prev, { ...test, overridePriceStr: String(test.price) }]);
     setSearchQuery('');
   };
 
-  const removeTest = (id) => {
-    setSelectedTests(prev => prev.filter(t => t.id !== id));
+  const removeTest = (id) => setSelectedTests(prev => prev.filter(t => t.id !== id));
+
+  const updateOverride = (id, val) => {
+    setSelectedTests(prev => prev.map(t => t.id === id ? { ...t, overridePriceStr: val } : t));
   };
 
-  const updatePrice = (id, newPrice) => {
-    setSelectedTests(prev => prev.map(t => t.id === id ? { ...t, overridePrice: Number(newPrice) || 0 } : t));
-  };
-
-  // Calculations
-  const subtotal = selectedTests.reduce((s, t) => s + (t.overridePrice || t.price || 0), 0);
+  // Derived
+  const discount = Number(discountStr) || 0;
+  const paidAmount = Number(paidStr) || 0;
+  const subtotal = selectedTests.reduce((s, t) => s + (Number(t.overridePriceStr) || t.price || 0), 0);
   const discountAmount = discountType === 'percentage'
     ? subtotal * (Math.min(discount, 100) / 100)
     : Math.min(discount, subtotal);
@@ -334,31 +284,45 @@ function CreateInvoiceModal({ open, onClose, onSave }) {
   const grandTotal = taxableAmount + gstAmount;
   const dueAmount = Math.max(0, grandTotal - paidAmount);
 
+  const validateAge = (v) => {
+    if (v === '') return true;
+    const n = Number(v);
+    return Number.isInteger(n) && n >= 0 && n <= 150;
+  };
+
   const handleSubmit = (e) => {
     e.preventDefault();
-    if (!patientForm.name) return toast.error('Please enter patient name');
+    if (!patientForm.name.trim()) return toast.error('Please enter patient name');
     if (selectedTests.length === 0) return toast.error('Please select at least one test');
-    if (!paidAmount || paidAmount <= 0) return toast.error('Please enter paid amount');
+    if (paidStr === '' || paidAmount <= 0) return toast.error('Please enter paid amount');
+    if (paidAmount > grandTotal) return toast.error('Paid amount cannot exceed grand total');
+    if (discountType === 'percentage' && discount > 100) return toast.error('Discount cannot exceed 100%');
 
     onSave({
-      ...patientForm,
-      selectedTests,
+      patientName: patientForm.name,
+      age: patientForm.age,
+      gender: patientForm.gender,
+      phone: patientForm.phone,
+      doctor: patientForm.doctor,
+      address: patientForm.address,
+      selectedTests: selectedTests.map(t => ({ ...t, overridePrice: Number(t.overridePriceStr) || t.price })),
       subtotal,
       discountAmount,
       gstAmount,
       grandTotal,
-      paidAmount: Number(paidAmount),
+      paidAmount,
       dueAmount,
       paymentMode,
       discount,
       discountType,
     });
-    // Reset form
+
+    // reset
     setStep(1);
     setPatientForm({ name: '', age: '', gender: 'Male', phone: '', doctor: '', address: '' });
     setSelectedTests([]);
-    setDiscount(0);
-    setPaidAmount(0);
+    setDiscountStr('');
+    setPaidStr('');
     setPaymentMode('Cash');
   };
 
@@ -366,8 +330,8 @@ function CreateInvoiceModal({ open, onClose, onSave }) {
     setStep(1);
     setPatientForm({ name: '', age: '', gender: 'Male', phone: '', doctor: '', address: '' });
     setSelectedTests([]);
-    setDiscount(0);
-    setPaidAmount(0);
+    setDiscountStr('');
+    setPaidStr('');
     setPaymentMode('Cash');
     onClose();
   };
@@ -375,14 +339,16 @@ function CreateInvoiceModal({ open, onClose, onSave }) {
   return (
     <Modal open={open} onClose={resetAndClose} title="Create New Invoice" size="xl">
       {/* Steps Indicator */}
-      <div className="mb-6 flex items-center gap-2">
+      <div className="mb-6 flex flex-wrap items-center gap-2">
         {[{ n: 1, label: 'Patient' }, { n: 2, label: 'Tests' }, { n: 3, label: 'Payment' }].map(s => (
           <div key={s.n} className="flex items-center gap-2">
-            <span className={`grid h-8 w-8 place-items-center rounded-full text-xs font-bold ${step >= s.n ? 'bg-blue-600 text-white' : 'bg-slate-100 text-slate-400 dark:bg-slate-800'}`}>
+            <span className={`grid h-8 w-8 place-items-center rounded-full text-xs font-bold ${
+              step >= s.n ? 'bg-blue-600 text-white' : 'bg-slate-100 text-slate-400 dark:bg-slate-800'
+            }`}>
               {step > s.n ? <FiCheck size={14} /> : s.n}
             </span>
             <span className={`text-xs font-medium ${step >= s.n ? 'text-blue-600' : 'text-slate-400'}`}>{s.label}</span>
-            {s.n < 3 && <div className={`h-0.5 w-8 ${step > s.n ? 'bg-blue-600' : 'bg-slate-200 dark:bg-slate-700'}`} />}
+            {s.n < 3 && <div className={`h-0.5 w-6 sm:w-10 ${step > s.n ? 'bg-blue-600' : 'bg-slate-200 dark:bg-slate-700'}`} />}
           </div>
         ))}
       </div>
@@ -391,14 +357,20 @@ function CreateInvoiceModal({ open, onClose, onSave }) {
         {/* Step 1: Patient Details */}
         {step === 1 && (
           <div className="space-y-4">
-            <div className="grid gap-4 md:grid-cols-2">
-              <label className="md:col-span-2">
-                <span className="label">Patient Name</span>
-                <input className="field" value={patientForm.name} onChange={e => setPatientForm({ ...patientForm, name: e.target.value })} placeholder="Enter patient name" required />
+            <div className="grid gap-4 sm:grid-cols-2">
+              <label className="sm:col-span-2">
+                <span className="label">Patient Name *</span>
+                <input className="field" value={patientForm.name} onChange={e => setPatientForm({ ...patientForm, name: e.target.value })} placeholder="Enter patient full name" required />
               </label>
               <label>
-                <span className="label">Age</span>
-                <input className="field" type="number" value={patientForm.age} onChange={e => setPatientForm({ ...patientForm, age: e.target.value })} placeholder="Years" />
+                <span className="label">Age (years)</span>
+                <NumericInput
+                  value={patientForm.age}
+                  onChange={v => setPatientForm({ ...patientForm, age: v })}
+                  placeholder="e.g. 32"
+                  min={0}
+                  max={150}
+                />
               </label>
               <label>
                 <span className="label">Gender</span>
@@ -410,20 +382,24 @@ function CreateInvoiceModal({ open, onClose, onSave }) {
               </label>
               <label>
                 <span className="label">Phone Number</span>
-                <input className="field" value={patientForm.phone} onChange={e => setPatientForm({ ...patientForm, phone: e.target.value })} placeholder="+91 98765 43210" />
+                <input className="field" value={patientForm.phone} onChange={e => setPatientForm({ ...patientForm, phone: e.target.value.replace(/\D/g, '') })} placeholder="e.g. 9876543210" maxLength={15} />
               </label>
               <label>
                 <span className="label">Referring Doctor</span>
                 <input className="field" value={patientForm.doctor} onChange={e => setPatientForm({ ...patientForm, doctor: e.target.value })} placeholder="Dr. Name" />
               </label>
-              <label className="md:col-span-2">
+              <label className="sm:col-span-2">
                 <span className="label">Address</span>
-                <textarea className="field h-16" value={patientForm.address} onChange={e => setPatientForm({ ...patientForm, address: e.target.value })} placeholder="Patient address..." />
+                <textarea className="field h-16 resize-none" value={patientForm.address} onChange={e => setPatientForm({ ...patientForm, address: e.target.value })} placeholder="Patient address..." />
               </label>
             </div>
             <div className="flex justify-end">
-              <button type="button" className="btn-primary" onClick={() => { if (patientForm.name) setStep(2); else toast.error('Patient name is required'); }}>
-                Next: Select Tests
+              <button type="button" className="btn-primary w-full sm:w-auto" onClick={() => {
+                if (!patientForm.name.trim()) return toast.error('Patient name is required');
+                if (patientForm.age && !validateAge(patientForm.age)) return toast.error('Please enter a valid age (0–150)');
+                setStep(2);
+              }}>
+                Next: Select Tests →
               </button>
             </div>
           </div>
@@ -436,9 +412,9 @@ function CreateInvoiceModal({ open, onClose, onSave }) {
               <FiSearch className="absolute left-3 top-3 text-slate-400" />
               <input className="field pl-9" value={searchQuery} onChange={e => setSearchQuery(e.target.value)} placeholder="Search tests (CBC, LFT, KFT, Vitamin D, HbA1c...)" />
               {searchQuery && filteredTests.length > 0 && (
-                <div className="absolute z-20 mt-1 max-h-48 w-full overflow-auto rounded-xl border border-slate-200 bg-white p-1 shadow-xl dark:border-slate-700 dark:bg-slate-900">
+                <div className="absolute z-20 mt-1 max-h-52 w-full overflow-auto rounded-xl border border-slate-200 bg-white p-1 shadow-xl dark:border-slate-700 dark:bg-slate-900">
                   {filteredTests.map(t => (
-                    <button key={t.id} type="button" onClick={() => addTest(t)} className="flex w-full items-center justify-between rounded-lg px-3 py-2.5 text-left hover:bg-blue-50 dark:hover:bg-blue-900/30">
+                    <button key={t.id} type="button" onClick={() => addTest(t)} className="flex w-full items-center justify-between rounded-lg px-3 py-2.5 text-left hover:bg-blue-50 dark:hover:bg-blue-900/30 transition-colors">
                       <div>
                         <p className="text-sm font-medium text-slate-700 dark:text-slate-200">{t.name}</p>
                         <p className="text-xs text-slate-400">{t.id} · ₹{t.price?.toLocaleString('en-IN')}</p>
@@ -448,34 +424,40 @@ function CreateInvoiceModal({ open, onClose, onSave }) {
                   ))}
                 </div>
               )}
+              {searchQuery && filteredTests.length === 0 && (
+                <p className="mt-2 text-xs text-slate-400 pl-1">No matching tests found.</p>
+              )}
             </div>
 
             {selectedTests.length > 0 && (
-              <div className="rounded-xl border border-slate-200 dark:border-slate-700 overflow-hidden">
-                <table className="w-full text-left text-sm">
+              <div className="rounded-xl border border-slate-200 dark:border-slate-700 overflow-x-auto">
+                <table className="w-full min-w-[400px] text-left text-sm">
                   <thead className="bg-slate-50 text-xs uppercase text-slate-500 dark:bg-slate-800/50 dark:text-slate-400">
                     <tr>
                       <th className="px-4 py-2">Test</th>
-                      <th className="px-4 py-2">Default Price</th>
-                      <th className="px-4 py-2">Override Price</th>
+                      <th className="px-4 py-2">Default</th>
+                      <th className="px-4 py-2">Override Price (₹)</th>
                       <th className="px-4 py-2"></th>
                     </tr>
                   </thead>
                   <tbody className="divide-y dark:divide-slate-800">
                     {selectedTests.map(t => (
                       <tr key={t.id}>
-                        <td className="px-4 py-2 font-medium text-slate-700 dark:text-slate-300">{t.name}</td>
-                        <td className="px-4 py-2 font-mono text-slate-500">{formatCurrency(t.price)}</td>
-                        <td className="px-4 py-2">
-                          <input
-                            type="number"
-                            className="w-24 rounded-lg border border-slate-200 px-2 py-1 text-sm dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200"
-                            value={t.overridePrice}
-                            onChange={e => updatePrice(t.id, e.target.value)}
+                        <td className="px-4 py-2.5 font-medium text-slate-700 dark:text-slate-300">{t.name}</td>
+                        <td className="px-4 py-2.5 font-mono text-slate-500">{formatCurrency(t.price)}</td>
+                        <td className="px-4 py-2.5">
+                          <NumericInput
+                            value={t.overridePriceStr}
+                            onChange={v => updateOverride(t.id, v)}
+                            placeholder={String(t.price)}
+                            min={0}
+                            className="w-28 rounded-lg border border-slate-200 px-2 py-1.5 text-sm dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200 outline-none focus:border-blue-500"
                           />
                         </td>
-                        <td className="px-4 py-2">
-                          <button type="button" onClick={() => removeTest(t.id)} className="text-rose-500 hover:text-rose-700"><FiTrash2 size={14} /></button>
+                        <td className="px-4 py-2.5">
+                          <button type="button" onClick={() => removeTest(t.id)} className="text-rose-500 hover:text-rose-700 transition-colors">
+                            <FiTrash2 size={14} />
+                          </button>
                         </td>
                       </tr>
                     ))}
@@ -484,10 +466,19 @@ function CreateInvoiceModal({ open, onClose, onSave }) {
               </div>
             )}
 
-            <div className="flex justify-between">
-              <button type="button" className="btn-secondary" onClick={() => setStep(1)}>Back</button>
-              <button type="button" className="btn-primary" onClick={() => { if (selectedTests.length > 0) setStep(3); else toast.error('Select at least one test'); }}>
-                Next: Payment
+            {selectedTests.length === 0 && (
+              <div className="rounded-xl border border-dashed border-slate-300 dark:border-slate-700 py-10 text-center">
+                <p className="text-sm text-slate-400">Search and add laboratory tests above.</p>
+              </div>
+            )}
+
+            <div className="flex flex-col-reverse sm:flex-row justify-between gap-3">
+              <button type="button" className="btn-secondary w-full sm:w-auto" onClick={() => setStep(1)}>← Back</button>
+              <button type="button" className="btn-primary w-full sm:w-auto" onClick={() => {
+                if (selectedTests.length === 0) return toast.error('Select at least one test');
+                setStep(3);
+              }}>
+                Next: Payment →
               </button>
             </div>
           </div>
@@ -496,15 +487,22 @@ function CreateInvoiceModal({ open, onClose, onSave }) {
         {/* Step 3: Payment */}
         {step === 3 && (
           <div className="space-y-4">
-            <div className="grid gap-4 md:grid-cols-2">
+            <div className="grid gap-4 sm:grid-cols-2">
               <div className="card p-4 space-y-3">
                 <h3 className="text-sm font-semibold text-slate-700 dark:text-slate-300">Discount</h3>
                 <div className="flex gap-2">
-                  <select className="field w-auto" value={discountType} onChange={e => setDiscountType(e.target.value)}>
+                  <select className="field w-16" value={discountType} onChange={e => setDiscountType(e.target.value)}>
                     <option value="percentage">%</option>
                     <option value="flat">₹</option>
                   </select>
-                  <input className="field" type="number" value={discount} onChange={e => setDiscount(Number(e.target.value) || 0)} placeholder="0" />
+                  <NumericInput
+                    value={discountStr}
+                    onChange={setDiscountStr}
+                    placeholder={discountType === 'percentage' ? '0–100' : '0'}
+                    min={0}
+                    max={discountType === 'percentage' ? 100 : subtotal}
+                    className="field"
+                  />
                 </div>
               </div>
               <div className="card p-4 space-y-3">
@@ -512,7 +510,14 @@ function CreateInvoiceModal({ open, onClose, onSave }) {
                 <select className="field" value={paymentMode} onChange={e => setPaymentMode(e.target.value)}>
                   {paymentModes.map(m => <option key={m}>{m}</option>)}
                 </select>
-                <input className="field" type="number" value={paidAmount} onChange={e => setPaidAmount(Number(e.target.value) || 0)} placeholder="Paid amount" />
+                <NumericInput
+                  value={paidStr}
+                  onChange={setPaidStr}
+                  placeholder="Enter paid amount"
+                  min={0}
+                  max={grandTotal}
+                  className="field"
+                />
               </div>
             </div>
 
@@ -550,9 +555,11 @@ function CreateInvoiceModal({ open, onClose, onSave }) {
               </div>
             </div>
 
-            <div className="flex justify-between">
-              <button type="button" className="btn-secondary" onClick={() => setStep(2)}>Back</button>
-              <button type="submit" className="btn-primary"><FiDollarSign /> Create Invoice</button>
+            <div className="flex flex-col-reverse sm:flex-row justify-between gap-3">
+              <button type="button" className="btn-secondary w-full sm:w-auto" onClick={() => setStep(2)}>← Back</button>
+              <button type="submit" className="btn-primary w-full sm:w-auto">
+                <FiDollarSign /> Create Invoice
+              </button>
             </div>
           </div>
         )}
@@ -561,19 +568,20 @@ function CreateInvoiceModal({ open, onClose, onSave }) {
   );
 }
 
+// ─────────────────────────────────────────────────────────
+// Invoice Preview (Print/PDF)
+// ─────────────────────────────────────────────────────────
 function InvoicePreviewHTML({ invoice }) {
   return (
-    <div id="invoice-preview" className="bg-white text-[#111827] mx-auto" style={{ width: '794px', minHeight: '1123px', fontFamily: "'Inter', 'Roboto', sans-serif" }}>
-      {/* ===== HEADER ===== */}
+    <div id="invoice-preview" className="bg-white text-[#111827] mx-auto overflow-hidden" style={{ width: '794px', minHeight: '1123px', fontFamily: "'Inter', 'Roboto', sans-serif" }}>
+      {/* HEADER */}
       <div className="flex items-start justify-between pb-6" style={{ borderBottom: '3px solid #1E40AF' }}>
         <div className="flex gap-4">
           <div className="flex items-center justify-center w-16 h-16 rounded-xl" style={{ background: '#1E40AF' }}>
             <span className="text-3xl font-bold text-white" style={{ fontFamily: "'Poppins', sans-serif" }}>L</span>
           </div>
           <div>
-            <h1 className="text-2xl font-bold text-[#111827]" style={{ fontFamily: "'Poppins', sans-serif", fontWeight: 700 }}>
-              LabPro Diagnostics
-            </h1>
+            <h1 className="text-2xl font-bold text-[#111827]" style={{ fontFamily: "'Poppins', sans-serif", fontWeight: 700 }}>LabPro Diagnostics</h1>
             <p className="text-sm font-medium text-[#374151]">NABL-ready diagnostic laboratory</p>
             <p className="mt-1 text-xs text-[#6B7280]">24, Health Plaza, Bengaluru - 560001</p>
             <p className="text-xs text-[#6B7280]">+91 80 4567 8900 · info@labpro.in · www.labpro.in</p>
@@ -582,72 +590,49 @@ function InvoicePreviewHTML({ invoice }) {
         <div className="text-right">
           <p className="text-lg font-bold text-[#1E40AF]" style={{ fontFamily: "'Poppins', sans-serif", fontWeight: 700 }}>{invoice.invoiceNo}</p>
           <p className="text-xs font-medium text-[#374151]">Date: {invoice.date}</p>
-          <div className="mt-2 inline-block rounded-lg px-3 py-1 text-xs font-semibold text-white" style={{ background: '#1E40AF' }}>
-            TAX INVOICE
-          </div>
+          <div className="mt-2 inline-block rounded-lg px-3 py-1 text-xs font-semibold text-white" style={{ background: '#1E40AF' }}>TAX INVOICE</div>
         </div>
       </div>
 
-      {/* ===== PATIENT INFORMATION CARD ===== */}
+      {/* PATIENT INFO */}
       <div className="patient-card mt-6 rounded-xl p-5" style={{ background: '#F8FAFC', border: '1px solid #E2E8F0' }}>
-        <h3 className="mb-4 text-sm font-semibold text-[#111827]" style={{ fontFamily: "'Poppins', sans-serif", fontWeight: 600 }}>
-          PATIENT INFORMATION
-        </h3>
+        <h3 className="mb-4 text-sm font-semibold text-[#111827]" style={{ fontFamily: "'Poppins', sans-serif", fontWeight: 600 }}>PATIENT INFORMATION</h3>
         <div className="grid grid-cols-2 gap-x-8 gap-y-3 text-sm">
-          <div className="flex gap-2">
-            <span className="font-semibold text-[#111827]" style={{ fontWeight: 600, minWidth: 80 }}>Patient Name</span>
-            <span className="text-[#374151] font-medium">: {invoice.patientName}</span>
-          </div>
-          <div className="flex gap-2">
-            <span className="font-semibold text-[#111827]" style={{ fontWeight: 600, minWidth: 80 }}>Invoice No</span>
-            <span className="text-[#374151] font-medium">: {invoice.invoiceNo}</span>
-          </div>
-          <div className="flex gap-2">
-            <span className="font-semibold text-[#111827]" style={{ fontWeight: 600, minWidth: 80 }}>Age / Gender</span>
-            <span className="text-[#374151] font-medium">: {invoice.age || '—'} / {invoice.gender || '—'}</span>
-          </div>
-          <div className="flex gap-2">
-            <span className="font-semibold text-[#111827]" style={{ fontWeight: 600, minWidth: 80 }}>Date</span>
-            <span className="text-[#374151] font-medium">: {invoice.date}</span>
-          </div>
-          <div className="flex gap-2">
-            <span className="font-semibold text-[#111827]" style={{ fontWeight: 600, minWidth: 80 }}>Phone</span>
-            <span className="text-[#374151] font-medium">: {invoice.phone || '—'}</span>
-          </div>
-          <div className="flex gap-2">
-            <span className="font-semibold text-[#111827]" style={{ fontWeight: 600, minWidth: 80 }}>Doctor</span>
-            <span className="text-[#374151] font-medium">: {invoice.doctor || 'Self'}</span>
-          </div>
+          {[
+            ['Patient Name', invoice.patientName],
+            ['Invoice No', invoice.invoiceNo],
+            ['Age / Gender', `${invoice.age || '—'} / ${invoice.gender || '—'}`],
+            ['Date', invoice.date],
+            ['Phone', invoice.phone || '—'],
+            ['Doctor', invoice.doctor || 'Self'],
+          ].map(([label, value]) => (
+            <div key={label} className="flex gap-2">
+              <span className="font-semibold text-[#111827]" style={{ fontWeight: 600, minWidth: 90 }}>{label}</span>
+              <span className="text-[#374151] font-medium">: {value}</span>
+            </div>
+          ))}
           {invoice.address && (
             <div className="flex gap-2 col-span-2">
-              <span className="font-semibold text-[#111827]" style={{ fontWeight: 600, minWidth: 80 }}>Address</span>
+              <span className="font-semibold text-[#111827]" style={{ fontWeight: 600, minWidth: 90 }}>Address</span>
               <span className="text-[#374151] font-medium">: {invoice.address}</span>
             </div>
           )}
         </div>
       </div>
 
-      {/* ===== TESTS TABLE ===== */}
+      {/* TESTS TABLE */}
       <div className="mt-6">
         <table className="w-full text-left text-sm" style={{ borderCollapse: 'collapse' }}>
           <thead>
             <tr style={{ background: '#1E40AF' }}>
-              <th className="px-4 py-3 text-white font-semibold text-xs uppercase tracking-wider" style={{ fontWeight: 600, borderRight: '1px solid #2563EB' }}>#</th>
-              <th className="px-4 py-3 text-white font-semibold text-xs uppercase tracking-wider" style={{ fontWeight: 600, borderRight: '1px solid #2563EB' }}>Test Name</th>
-              <th className="px-4 py-3 text-white font-semibold text-xs uppercase tracking-wider" style={{ fontWeight: 600, borderRight: '1px solid #2563EB' }}>Department</th>
-              <th className="px-4 py-3 text-white font-semibold text-xs uppercase tracking-wider text-right" style={{ fontWeight: 600, borderRight: '1px solid #2563EB' }}>Price (₹)</th>
-              <th className="px-4 py-3 text-white font-semibold text-xs uppercase tracking-wider text-right" style={{ fontWeight: 600 }}>Amount (₹)</th>
+              {['#', 'Test Name', 'Department', 'Price (₹)', 'Amount (₹)'].map((h, i) => (
+                <th key={h} className={`px-4 py-3 text-white font-semibold text-xs uppercase tracking-wider ${i < 4 ? 'border-r border-blue-500' : ''} ${i >= 3 ? 'text-right' : ''}`}>{h}</th>
+              ))}
             </tr>
           </thead>
           <tbody>
             {invoice.selectedTests?.map((t, i) => (
-              <tr
-                key={t.id}
-                style={{
-                  background: i % 2 === 0 ? '#ffffff' : '#F8FAFC',
-                  borderBottom: '1px solid #E2E8F0'
-                }}
-              >
+              <tr key={t.id} style={{ background: i % 2 === 0 ? '#ffffff' : '#F8FAFC', borderBottom: '1px solid #E2E8F0' }}>
                 <td className="px-4 py-3 text-[#6B7280] text-xs font-medium">{i + 1}</td>
                 <td className="px-4 py-3 font-semibold text-[#111827]">{t.name}</td>
                 <td className="px-4 py-3 text-[#374151] text-xs">{t.department || '—'}</td>
@@ -659,53 +644,24 @@ function InvoicePreviewHTML({ invoice }) {
         </table>
       </div>
 
-      {/* ===== SUMMARY CARD ===== */}
-      <div className="summary-card mt-6 ml-auto rounded-xl p-5" style={{
-        width: '320px',
-        background: '#F8FAFC',
-        border: '1px solid #E2E8F0',
-        boxShadow: '0 4px 24px rgba(15, 23, 42, 0.08)'
-      }}>
-        <h3 className="mb-4 text-sm font-semibold text-[#111827]" style={{ fontFamily: "'Poppins', sans-serif", fontWeight: 600 }}>
-          PAYMENT SUMMARY
-        </h3>
+      {/* SUMMARY */}
+      <div className="summary-card mt-6 ml-auto rounded-xl p-5" style={{ width: '320px', background: '#F8FAFC', border: '1px solid #E2E8F0', boxShadow: '0 4px 24px rgba(15, 23, 42, 0.08)' }}>
+        <h3 className="mb-4 text-sm font-semibold text-[#111827]" style={{ fontFamily: "'Poppins', sans-serif", fontWeight: 600 }}>PAYMENT SUMMARY</h3>
         <div className="space-y-2 text-sm">
-          <div className="flex justify-between items-center">
-            <span className="text-[#374151] font-medium">Subtotal</span>
-            <span className="font-mono font-semibold text-[#111827]">{formatCurrency(invoice.subtotal)}</span>
+          <div className="flex justify-between"><span className="text-[#374151]">Subtotal</span><span className="font-mono font-semibold text-[#111827]">{formatCurrency(invoice.subtotal)}</span></div>
+          {(invoice.discountAmount || 0) > 0 && <div className="flex justify-between"><span className="text-[#374151]">Discount</span><span className="font-mono font-semibold text-[#DC2626]">-{formatCurrency(invoice.discountAmount)}</span></div>}
+          <div className="flex justify-between"><span className="text-[#374151]">GST (18%)</span><span className="font-mono font-semibold text-[#374151]">{formatCurrency(invoice.gstAmount)}</span></div>
+          <div className="flex justify-between pt-2" style={{ borderTop: '2px solid #1E40AF' }}>
+            <span className="text-base font-bold text-[#111827]" style={{ fontFamily: "'Poppins', sans-serif" }}>Grand Total</span>
+            <span className="font-mono text-xl font-bold text-[#111827]">{formatCurrency(invoice.grandTotal)}</span>
           </div>
-          {(invoice.discountAmount || 0) > 0 && (
-            <div className="flex justify-between items-center">
-              <span className="text-[#374151] font-medium">Discount</span>
-              <span className="font-mono font-semibold text-[#DC2626]">-{formatCurrency(invoice.discountAmount)}</span>
-            </div>
-          )}
-          <div className="flex justify-between items-center">
-            <span className="text-[#374151] font-medium">GST (18%)</span>
-            <span className="font-mono font-semibold text-[#374151]">{formatCurrency(invoice.gstAmount)}</span>
-          </div>
-          <div className="flex justify-between items-center pt-2" style={{ borderTop: '2px solid #1E40AF' }}>
-            <span className="text-base font-bold text-[#111827]" style={{ fontFamily: "'Poppins', sans-serif", fontWeight: 700 }}>Grand Total</span>
-            <span className="font-mono text-xl font-bold text-[#111827]" style={{ fontFamily: "'Poppins', sans-serif" }}>{formatCurrency(invoice.grandTotal)}</span>
-          </div>
-          <div className="flex justify-between items-center pt-1">
-            <span className="font-semibold text-[#059669]" style={{ fontWeight: 600 }}>Paid</span>
-            <span className="font-mono font-bold text-[#059669]">{formatCurrency(invoice.paidAmount)}</span>
-          </div>
-          {(invoice.dueAmount || 0) > 0 && (
-            <div className="flex justify-between items-center">
-              <span className="font-semibold text-[#DC2626]" style={{ fontWeight: 600 }}>Due</span>
-              <span className="font-mono font-bold text-[#DC2626]">{formatCurrency(invoice.dueAmount)}</span>
-            </div>
-          )}
-          <div className="flex justify-between items-center pt-1 text-xs">
-            <span className="text-[#6B7280] font-medium">Payment Mode</span>
-            <span className="font-mono font-semibold text-[#374151]">{invoice.paymentMode}</span>
-          </div>
+          <div className="flex justify-between"><span className="font-semibold text-[#059669]">Paid</span><span className="font-mono font-bold text-[#059669]">{formatCurrency(invoice.paidAmount)}</span></div>
+          {(invoice.dueAmount || 0) > 0 && <div className="flex justify-between"><span className="font-semibold text-[#DC2626]">Due</span><span className="font-mono font-bold text-[#DC2626]">{formatCurrency(invoice.dueAmount)}</span></div>}
+          <div className="flex justify-between text-xs"><span className="text-[#6B7280]">Payment Mode</span><span className="font-mono font-semibold text-[#374151]">{invoice.paymentMode}</span></div>
         </div>
       </div>
 
-      {/* ===== FOOTER ===== */}
+      {/* FOOTER */}
       <div className="mt-12" style={{ borderTop: '1px solid #D1D5DB' }}>
         <div className="pt-4 text-center">
           <p className="text-xs text-[#6B7280] font-medium">This is a computer-generated invoice. Payment received. Thank you for choosing LabPro Diagnostics.</p>
@@ -717,21 +673,22 @@ function InvoicePreviewHTML({ invoice }) {
   );
 }
 
+// ─────────────────────────────────────────────────────────
+// Timeline Modal
+// ─────────────────────────────────────────────────────────
 function TimelineModal({ invoice, onClose, onUpdate }) {
   if (!invoice) return null;
-
   const currentStepIndex = timelineSteps.findIndex(s => invoice.timeline?.find(t => t.step === s.key && t.done));
 
   return (
-    <Modal open={invoice !== null} onClose={onClose} title={`Report Status - ${invoice.invoiceNo}`} size="md">
+    <Modal open={invoice !== null} onClose={onClose} title={`Report Status – ${invoice.invoiceNo}`} size="md">
       <div className="py-4">
-        <p className="mb-4 text-sm text-slate-500">Track the progress of this invoice and report</p>
+        <p className="mb-4 text-sm text-slate-500">Track the progress of this invoice and report.</p>
         <div className="space-y-0">
           {timelineSteps.map((step, idx) => {
             const done = invoice.timeline?.find(t => t.step === step.key)?.done || false;
             const isCurrent = idx === currentStepIndex + 1;
             const canActivate = currentStepIndex === -1 || idx <= currentStepIndex + 1;
-
             return (
               <div key={step.key} className="timeline-dot">
                 <button
@@ -754,26 +711,16 @@ function TimelineModal({ invoice, onClose, onUpdate }) {
                       {new Date(invoice.timeline.find(t => t.step === step.key).date).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}
                     </p>
                   )}
-                  {isCurrent && !done && (
-                    <p className="text-xs text-blue-400">Click to mark complete</p>
-                  )}
+                  {isCurrent && !done && <p className="text-xs text-blue-400">Click to mark complete</p>}
                 </div>
               </div>
             );
           })}
         </div>
 
-        {/* Generate Report button (only when sample collected or beyond) */}
         {currentStepIndex >= 2 && (
           <div className="mt-6 flex justify-center">
-            <Link
-              to="/reports/create"
-              className="btn-primary"
-              onClick={() => {
-                toast.success(`Proceeding to generate report for ${invoice.patientName}`);
-                onClose();
-              }}
-            >
+            <Link to="/reports/create" className="btn-primary" onClick={() => { toast.success(`Proceeding to generate report for ${invoice.patientName}`); onClose(); }}>
               <FiFileText /> Generate Report for {invoice.patientName}
             </Link>
           </div>
@@ -782,4 +729,3 @@ function TimelineModal({ invoice, onClose, onUpdate }) {
     </Modal>
   );
 }
-

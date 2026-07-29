@@ -66,7 +66,7 @@ export default function ReportsPage() {
         title="Diagnostic reports"
         description="Track, validate and distribute all laboratory reports."
         action={
-          <Link className="btn-primary" to="/reports/create">
+          <Link className="btn-primary w-full sm:w-auto" to="/reports/create">
             <FiPlus /> Create report
           </Link>
         }
@@ -80,11 +80,11 @@ export default function ReportsPage() {
           <p className="text-xs text-slate-400">{filtered.length} reports</p>
         </div>
         <div className="overflow-x-auto">
-          <table className="w-full text-left text-sm">
+          <table className="w-full min-w-[600px] text-left text-sm">
             <thead className="bg-slate-50 text-xs uppercase tracking-wide text-slate-500 dark:bg-slate-800/50">
               <tr>
                 {['Report ID', 'Patient', 'Tests', 'Reported on', 'Amount', 'Status', ''].map(h => (
-                  <th key={h} className="px-5 py-3 font-semibold">{h}</th>
+                  <th key={h} className="px-4 py-3 font-semibold whitespace-nowrap">{h}</th>
                 ))}
               </tr>
             </thead>
