@@ -35,7 +35,7 @@ export default function Topbar() {
       <div className="flex items-center gap-3">
         {/* Mobile hamburger → opens MobileDrawer */}
         <button
-          className="rounded-xl p-2 text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800 lg:hidden"
+          className="flex h-11 w-11 min-h-[44px] min-w-[44px] items-center justify-center rounded-xl p-2 text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800 lg:hidden"
           onClick={() => setMobileDrawerOpen(true)}
           aria-label="Open navigation menu"
         >
@@ -44,7 +44,7 @@ export default function Topbar() {
 
         {/* Desktop collapse toggle */}
         <button
-          className="hidden lg:flex rounded-xl p-2 text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800"
+          className="hidden h-11 w-11 min-h-[44px] min-w-[44px] items-center justify-center rounded-xl p-2 text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800 lg:flex"
           onClick={() => setSidebarOpen(prev => !prev)}
           aria-label="Toggle sidebar"
         >

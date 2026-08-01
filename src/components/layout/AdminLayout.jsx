@@ -1,14 +1,18 @@
 import { useState } from 'react';
 import { Outlet } from 'react-router-dom';
 import AdminSidebar from './AdminSidebar';
+import AdminMobileDrawer from './AdminMobileDrawer';
 
 export default function AdminLayout() {
   const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [mobileDrawerOpen, setMobileDrawerOpen] = useState(false);
 
   return (
     <div className="min-h-screen bg-slate-950 transition-colors overflow-x-hidden">
       {/* Desktop sidebar */}
       <AdminSidebar sidebarOpen={sidebarOpen} setSidebarOpen={setSidebarOpen} />
+
+      <AdminMobileDrawer open={mobileDrawerOpen} onClose={setMobileDrawerOpen} />
 
       {/* Main content area */}
       <div
@@ -20,7 +24,16 @@ export default function AdminLayout() {
         <header className="sticky top-0 z-30 flex h-[73px] items-center justify-between border-b border-slate-800 bg-slate-900/85 px-4 backdrop-blur-xl md:px-7">
           <div className="flex items-center gap-3">
             <button
-              className="rounded-xl p-2 text-slate-400 hover:bg-white/10 transition-colors"
+              className="flex h-11 w-11 min-h-[44px] min-w-[44px] items-center justify-center rounded-xl p-2 text-slate-400 hover:bg-white/10 transition-colors lg:hidden"
+              onClick={() => setMobileDrawerOpen(true)}
+              aria-label="Open navigation menu"
+            >
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+              </svg>
+            </button>
+            <button
+              className="hidden h-11 w-11 min-h-[44px] min-w-[44px] items-center justify-center rounded-xl p-2 text-slate-400 hover:bg-white/10 transition-colors lg:flex"
               onClick={() => setSidebarOpen(prev => !prev)}
               aria-label="Toggle sidebar"
             >

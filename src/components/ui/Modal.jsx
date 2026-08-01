@@ -29,7 +29,7 @@ export default function Modal({ open, onClose, title, children, size = 'md' }) {
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.95, y: 20 }}
             transition={{ type: 'spring', duration: 0.5 }}
-            className={`relative w-full ${sizes[size]} ${isMobile ? 'mx-3' : 'mx-4'} max-h-[90vh] overflow-auto rounded-2xl border border-slate-200 bg-white shadow-2xl dark:border-slate-700 dark:bg-slate-900`}
+            className={`relative w-[calc(100%-1.5rem)] ${sizes[size]} ${isMobile ? 'mx-3' : 'mx-4'} max-h-[90vh] overflow-y-auto rounded-2xl border border-slate-200 bg-white shadow-2xl dark:border-slate-700 dark:bg-slate-900`}
           >
             {title && (
               <div className="flex items-center justify-between border-b border-slate-200 px-6 py-4 dark:border-slate-700">

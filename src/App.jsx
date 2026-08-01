@@ -1,6 +1,7 @@
 import { Navigate, Route, Routes } from 'react-router-dom';
 import { useAuth } from './context/AuthContext';
 import { useSuperAdmin } from './context/SuperAdminContext';
+import { useMediaQuery } from './hooks/useMediaQuery';
 import AppLayout from './components/layout/AppLayout';
 import AdminLayout from './components/layout/AdminLayout';
 import ProtectedRoute from './components/common/ProtectedRoute';
@@ -28,6 +29,7 @@ import SetupPage from './pages/SetupPage';
 export default function App() {
   const { isAuthenticated } = useAuth();
   const { isAdminAuthenticated, adminConfigured } = useSuperAdmin();
+  const isMobile = useMediaQuery('(max-width: 767px)');
 
   return (
     <Routes>
@@ -75,7 +77,22 @@ export default function App() {
       {/* ── Catch-all ── */}
       <Route
         path="*"
-        element={<Navigate to={isAuthenticated ? '/dashboard' : isAdminAuthenticated ? '/admin' : adminConfigured ? '/admin/login' : '/setup'} replace />}
+        element={
+          <Navigate
+            to={
+              isAuthenticated
+                ? '/dashboard'
+                : isAdminAuthenticated
+                  ? '/admin'
+                  : isMobile
+                    ? '/login'
+                    : adminConfigured
+                      ? '/admin/login'
+                      : '/setup'
+            }
+            replace
+          />
+        }
       />
     </Routes>
   );
