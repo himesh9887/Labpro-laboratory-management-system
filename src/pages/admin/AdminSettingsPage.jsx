@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { FiSave, FiShield, FiDatabase, FiGlobe } from 'react-icons/fi';
 import toast from 'react-hot-toast';
 import { AdminPageHeader, adminBtnPrimary, adminInputClass } from '../../components/admin/AdminUI';
@@ -18,10 +18,21 @@ function Toggle({ value, onChange }) {
 export default function AdminSettingsPage() {
   const [platformName, setPlatformName] = useState('LabPro LIMS');
   const [platformEmail, setPlatformEmail] = useState('support@labpro.in');
-  const [allowSelfRegistration, setAllowSelfRegistration] = useState(true);
+  const [allowSelfRegistration, setAllowSelfRegistration] = useState(false);
   const [requireApproval, setRequireApproval] = useState(false);
   const [retentionDays, setRetentionDays] = useState(90);
   const [sessionTimeout, setSessionTimeout] = useState(60);
+
+  // Load persisted platform settings on mount
+  useEffect(() => {
+    const s = adminService.getPlatformSettings();
+    if (s.platformName) setPlatformName(s.platformName);
+    if (s.platformEmail) setPlatformEmail(s.platformEmail);
+    if (typeof s.allowSelfRegistration === 'boolean') setAllowSelfRegistration(s.allowSelfRegistration);
+    if (typeof s.requireApproval === 'boolean') setRequireApproval(s.requireApproval);
+    if (s.retentionDays) setRetentionDays(s.retentionDays);
+    if (s.sessionTimeout) setSessionTimeout(s.sessionTimeout);
+  }, []);
 
   const handleSave = () => {
     adminService.savePlatformSettings({

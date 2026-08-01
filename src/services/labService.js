@@ -54,16 +54,6 @@ export async function verifyPassword(plain, storedHash) {
   return hash === storedHash;
 }
 
-/* ─── Lab ID generation ───────────────────────────────────── */
-
-function generateLabId(registry) {
-  const max = registry.reduce((m, lab) => {
-    const num = parseInt((lab.labId || '').replace(/\D/g, '')) || 0;
-    return num > m ? num : m;
-  }, 0);
-  return `LAB${String(max + 1).padStart(3, '0')}`;
-}
-
 /* ─── Public API ──────────────────────────────────────────── */
 
 const labService = {
@@ -90,55 +80,18 @@ const labService = {
   },
 
   /**
-   * Register a new laboratory.
-   * Validates uniqueness of email, hashes password, assigns labId.
-   * Returns the new LabRecord (without passwordHash for safety).
-   *
-   * @param {object} formData
-   * @returns {Promise<object>} newLab
-   * @throws {Error} on duplicate email
+   * Self-registration is DISABLED.
+   * Laboratories are created exclusively by the Super Admin.
+   * This method is intentionally not implemented and always throws.
    */
-  async registerLab(formData) {
-    const registry = this.getAllLabs();
-
-    // Duplicate email check
-    const existing = registry.find(
-      lab => lab.email.toLowerCase() === formData.email.toLowerCase()
-    );
-    if (existing) {
-      throw new Error('A laboratory is already registered with this email address.');
-    }
-
-    const labId = generateLabId(registry);
-    const passwordHash = await hashPassword(formData.password);
-
-    const newLab = {
-      labId,
-      labName:      formData.labName.trim(),
-      ownerName:    formData.ownerName.trim(),
-      adminName:    formData.adminName.trim(),
-      mobile:       formData.mobile.trim(),
-      email:        formData.email.trim().toLowerCase(),
-      passwordHash,
-      address:      formData.address.trim(),
-      city:         formData.city.trim(),
-      state:        formData.state.trim(),
-      pincode:      formData.pincode.trim(),
-      logo:         formData.logo || null,
-      createdAt:    new Date().toISOString(),
-    };
-
-    this._saveRegistry([...registry, newLab]);
-
-    // Return lab info without the hash
-    const safelab = { ...newLab };
-    delete safelab.passwordHash;
-    return safelab;
+  async registerLab() {
+    throw new Error('Self-registration is disabled. Laboratories are provisioned by the Super Admin only.');
   },
 
   /**
    * Verify login credentials.
    * Returns the lab profile (no hash) on success, null on failure.
+   * Rejects suspended / deleted / expired / inactive laboratories.
    *
    * @param {string} email
    * @param {string} password
@@ -147,6 +100,13 @@ const labService = {
   async verifyLogin(email, password) {
     const lab = this.findByEmail(email);
     if (!lab) return null;
+
+    // Block login for suspended / deleted / expired / inactive accounts
+    if (lab.status && lab.status !== 'Active') {
+      console.warn(`[labService] Login blocked for ${lab.labId} — status: ${lab.status}`);
+      return null;
+    }
+
     const ok = await verifyPassword(password, lab.passwordHash);
     if (!ok) return null;
     const safelab = { ...lab };

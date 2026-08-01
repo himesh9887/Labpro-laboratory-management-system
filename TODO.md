@@ -1,41 +1,35 @@
-# LabPro LIMS — Enterprise Super Admin & Multi-Tenant System
+# LabPro LIMS — Authentication Architecture Fix
 
-## Phase 1 — Core Wiring
-- [x] Add `SuperAdminProvider` to `main.jsx`
-- [x] Add `/admin/*` routes + `AdminProtectedRoute` to `App.jsx`
-- [x] Remove public `/register` route (registration only via Super Admin)
-- [x] Create `AdminProtectedRoute` component
+## Progress Tracker
 
-## Phase 2 — Shared Admin UI Components
-- [x] `AdminPageHeader`, `AdminModal`, `StatusPill`, `AdminStatCard`, `AdminConfirmDialog`
-- [x] `src/data/defaultStaff.js` (shared staff defaults)
+### Step 1 — Services Layer
+- [x] `adminService.js`: store admin name; `verifyAdminLogin` returns name; `createLab` supports startDate + status
+- [x] `adminService.js`: add `savePlatformSettings`/`getPlatformSettings`
+- [x] `adminService.js`: fix backup methods (`createBackup`, `getBackupHistory`, `importBackup`, `restoreBackup`)
+- [x] `labService.js`: reject Suspended / Inactive / Expired / Deleted labs at login (already implemented)
 
-## Phase 3 — Admin Pages
-- [x] AdminLabsPage (table + create/edit/view/reset-password/extend/backup/delete)
-- [x] AdminSubscriptionsPage
-- [x] AdminPaymentsPage
-- [x] AdminActivityPage
-- [x] AdminLoginHistoryPage
-- [x] AdminNotificationsPage
-- [x] AdminBackupPage
-- [x] AdminSettingsPage
+### Step 2 — Contexts
+- [x] `SuperAdminContext.jsx`: session stores admin name; expose `superAdminCreated` flag
+- [x] `AuthContext.jsx`: session restore rejects Suspended / Deleted / Inactive labs
 
-## Phase 4 — Admin Navigation (Mobile + Desktop)
-- [x] `AdminMobileDrawer` (hamburger menu)
-- [x] Update `AdminLayout` to include mobile drawer
+### Step 3 — Authentication Pages (single unified login)
+- [ ] `LoginPage.jsx`: unified login — try Super Admin first, then Laboratory, else "Invalid Email or Password." Remove any register/create-account button.
+- [ ] `SetupPage.jsx`: add Administrator Name field; button label "Create Super Admin"; mark superAdminCreated
 
-## Phase 5 — Unified Login (Admin first, then Laboratory)
-- [x] Rewrite `LoginPage` — remove register tab, check admin then lab
+### Step 4 — Routing & Route Guards
+- [ ] `App.jsx`: remove `/admin/login` (redirect to `/login`); `/setup` only when no admin; `/login` only when admin exists; loading gate; catch-all by state
+- [ ] `AdminProtectedRoute.jsx`: redirect to `/login`
+- [ ] `AdminSidebar.jsx` + `AdminMobileDrawer.jsx`: sign-out navigates to `/login`
 
-## Phase 6 — Lab App Bug Fixes
-- [x] DashboardPage greeting uses logged-in admin name
-- [x] GlobalSearch patient link — remove broken `/patients` route
-- [x] Modal ESC close + body scroll lock
-- [x] Topbar user dropdown — click-based (works on touch)
-- [x] Invoice / Report preview branding uses current lab profile
-- [x] LabService — reject suspended / deleted / expired accounts on login
-- [x] AdminService.createLab — auto-seed isolated lab storage (settings, tests, staff)
+### Step 5 — Lab Management (Admin)
+- [ ] `AdminLabsPage.jsx`: status filter dropdown; Status field in create form; startDate wiring
 
-## Phase 7 — QA
-- [x] Production build passes (no compile/runtime errors)
+### Step 6 — Admin Pages bug fixes
+- [ ] `AdminSettingsPage.jsx`: wire to `savePlatformSettings`/`getPlatformSettings`; default self-registration OFF
+- [ ] `AdminBackupPage.jsx`: works with fixed service methods
+
+### Step 7 — Final QA
+- [ ] `npm run build` passes with ZERO errors
+- [ ] `npm run lint` passes with ZERO errors
+- [ ] Verify full auth flow (setup → login → admin/lab dashboards → logout → session)
 

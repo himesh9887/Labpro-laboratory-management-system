@@ -1,13 +1,11 @@
 import { Navigate, Route, Routes } from 'react-router-dom';
 import { useAuth } from './context/AuthContext';
 import { useSuperAdmin } from './context/SuperAdminContext';
-import { useMediaQuery } from './hooks/useMediaQuery';
 import AppLayout from './components/layout/AppLayout';
 import AdminLayout from './components/layout/AdminLayout';
 import ProtectedRoute from './components/common/ProtectedRoute';
 import AdminProtectedRoute from './components/common/AdminProtectedRoute';
 import LoginPage from './pages/LoginPage';
-import AdminLoginPage from './pages/AdminLoginPage';
 import DashboardPage from './pages/DashboardPage';
 import CreateReportPage from './pages/CreateReportPage';
 import ReportsPage from './pages/ReportsPage';
@@ -26,31 +24,76 @@ import AdminBackupPage from './pages/admin/AdminBackupPage';
 import AdminSettingsPage from './pages/admin/AdminSettingsPage';
 import SetupPage from './pages/SetupPage';
 
+/* ── Route gate component ─────────────────────────────────── */
+function RootGate() {
+  const { isAuthenticated, loading } = useAuth();
+  const { isAdminAuthenticated, adminConfigured, adminLoading } = useSuperAdmin();
+
+  // Wait for both session restores to settle before deciding where to go
+  if (loading || adminLoading) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-slate-50 dark:bg-slate-950">
+        <div className="flex flex-col items-center gap-4">
+          <span className="grid h-16 w-16 place-items-center rounded-2xl bg-blue-600 font-display text-2xl font-bold text-white shadow-lg shadow-blue-900/40 animate-pulse">
+            L
+          </span>
+          <p className="text-sm font-medium text-slate-500">Loading LabPro...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // First-ever run: no Super Admin yet → force the one-time setup page
+  if (!adminConfigured) {
+    return <Navigate to="/setup" replace />;
+  }
+
+  // Super Admin authenticated → Admin panel (never the lab dashboards)
+  if (isAdminAuthenticated) {
+    return <Navigate to="/admin" replace />;
+  }
+
+  // Lab authenticated → its own dashboard
+  if (isAuthenticated) {
+    return <Navigate to="/dashboard" replace />;
+  }
+
+  // Unauthenticated (and admin exists) → always the Login page
+  return <Navigate to="/login" replace />;
+}
+
 export default function App() {
   const { isAuthenticated } = useAuth();
   const { isAdminAuthenticated, adminConfigured } = useSuperAdmin();
-  const isMobile = useMediaQuery('(max-width: 767px)');
 
   return (
     <Routes>
+      {/* ── Root ── */}
+      <Route path="*" element={<RootGate />} />
+
+      {/* ── First-run Super Admin setup (single use) ── */}
       <Route
         path="/setup"
-        element={isAdminAuthenticated ? <Navigate to="/admin" replace /> : adminConfigured ? <Navigate to="/admin/login" replace /> : <SetupPage />}
+        element={adminConfigured ? <Navigate to="/login" replace /> : <SetupPage />}
       />
 
-      {/* ── Super Admin Auth Routes ── */}
-      <Route
-        path="/admin/login"
-        element={isAdminAuthenticated ? <Navigate to="/admin" replace /> : adminConfigured ? <AdminLoginPage /> : <Navigate to="/setup" replace />}
-      />
-
-      {/* ── Lab Auth Routes — redirect to dashboard if already logged in ── */}
+      {/* ── Unified Login (Super Admin OR Laboratory) ── */}
       <Route
         path="/login"
-        element={isAuthenticated ? <Navigate to="/dashboard" replace /> : <LoginPage />}
+        element={
+          !adminConfigured ? (
+            <Navigate to="/setup" replace />
+          ) : isAdminAuthenticated ? (
+            <Navigate to="/admin" replace />
+          ) : isAuthenticated ? (
+            <Navigate to="/dashboard" replace />
+          ) : (
+            <LoginPage />
+          )
+        }
       />
 
-      {/* ── Super Admin Panel (separate app) ── */}
+      {/* ── Super Admin Panel (isolated) ── */}
       <Route element={<AdminProtectedRoute><AdminLayout /></AdminProtectedRoute>}>
         <Route path="/admin"                  element={<AdminDashboardPage />} />
         <Route path="/admin/labs"             element={<AdminLabsPage />} />
@@ -73,27 +116,6 @@ export default function App() {
         <Route path="/staff"          element={<StaffPage />} />
         <Route path="/settings"       element={<SettingsPage />} />
       </Route>
-
-      {/* ── Catch-all ── */}
-      <Route
-        path="*"
-        element={
-          <Navigate
-            to={
-              isAuthenticated
-                ? '/dashboard'
-                : isAdminAuthenticated
-                  ? '/admin'
-                  : isMobile
-                    ? '/login'
-                    : adminConfigured
-                      ? '/admin/login'
-                      : '/setup'
-            }
-            replace
-          />
-        }
-      />
     </Routes>
   );
 }

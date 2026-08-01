@@ -40,7 +40,7 @@ export default function AdminMobileDrawer({ open, onClose }) {
   const handleSignOut = () => {
     onClose(false);
     adminLogout();
-    navigate('/admin/login');
+    navigate('/login');
   };
 
   return (

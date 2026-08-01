@@ -74,8 +74,12 @@ export function AuthProvider({ children }) {
         // Validate the session is not expired (optional: add expiry check)
         const lab = labService.findById(session.labId);
         if (lab) {
-          // Verify the email in session matches the registered email
-          if (lab.email.toLowerCase() !== session.email?.toLowerCase()) {
+          // A suspended / deleted / expired / inactive lab must not keep an active session
+          if (lab.status && lab.status !== 'Active') {
+            console.warn(`[AuthContext] Session blocked for ${lab.labId} — status: ${lab.status}`);
+            sessionService.clearSession();
+          } else if (lab.email.toLowerCase() !== session.email?.toLowerCase()) {
+            // Verify the email in session matches the registered email
             console.warn('[AuthContext] Session email mismatch — clearing session');
             sessionService.clearSession();
           } else {

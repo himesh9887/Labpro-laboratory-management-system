@@ -9,7 +9,7 @@ export default function AdminSidebar({ sidebarOpen, setSidebarOpen }) {
 
   const handleSignOut = () => {
     adminLogout();
-    navigate('/admin/login');
+    navigate('/login');
   };
 
   return (

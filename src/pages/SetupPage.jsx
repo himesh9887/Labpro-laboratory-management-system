@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { FiAlertCircle, FiArrowRight, FiEye, FiEyeOff, FiLock, FiMail, FiShield } from 'react-icons/fi';
+import { FiAlertCircle, FiArrowRight, FiEye, FiEyeOff, FiLock, FiMail, FiShield, FiUser } from 'react-icons/fi';
 import adminService from '../services/adminService';
 import { useSuperAdmin } from '../context/SuperAdminContext';
 
@@ -9,7 +9,7 @@ function Spinner() {
   return (
     <svg className="h-4 w-4 animate-spin" viewBox="0 0 24 24">
       <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
-      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 8 018-8V0C5.373 0 0 5.373 0 12h4z" />
+      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
     </svg>
   );
 }
@@ -34,6 +34,7 @@ function FieldIcon({ icon: Icon }) {
 }
 
 export default function SetupPage() {
+  const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
@@ -42,14 +43,24 @@ export default function SetupPage() {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
-  const { adminLogin, adminConfigured } = useSuperAdmin();
+  const { adminLogin } = useSuperAdmin();
 
   const handleSubmit = async (event) => {
     event.preventDefault();
     setError('');
 
+    if (!name.trim()) {
+      setError('Administrator name is required.');
+      return;
+    }
+
     if (!email.trim()) {
       setError('Email address is required.');
+      return;
+    }
+
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) {
+      setError('Enter a valid email address.');
       return;
     }
 
@@ -70,8 +81,8 @@ export default function SetupPage() {
 
     setLoading(true);
     try {
-      await adminService.initializeAdmin({ email: email.trim(), password });
-      await adminLogin(email.trim(), password);
+      await adminService.initializeAdmin({ name: name.trim(), email: email.trim(), password });
+      await adminLogin(email.trim(), password, true);
       navigate('/admin', { replace: true });
     } catch (err) {
       setError(err.message || 'Initial setup failed.');
@@ -82,13 +93,15 @@ export default function SetupPage() {
 
   return (
     <div className="flex min-h-screen bg-gradient-to-br from-slate-50 via-slate-100 to-slate-200 dark:from-slate-950 dark:via-slate-900 dark:to-slate-950">
-      <div className="m-auto flex w-full max-w-[420px] flex-col px-4 py-8">
+      <div className="m-auto flex w-full max-w-[440px] flex-col px-4 py-8">
         <div className="mb-6 text-center">
           <span className="mx-auto mb-3 grid h-16 w-16 place-items-center rounded-2xl bg-blue-600 font-display text-2xl font-bold text-white shadow-lg shadow-blue-900/40">
             L
           </span>
-          <h1 className="font-display text-2xl font-bold text-slate-900 dark:text-white">Initial Owner Setup</h1>
-          <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">Create the single Super Admin account for this SaaS instance.</p>
+          <h1 className="font-display text-2xl font-bold text-slate-900 dark:text-white">Create Super Admin</h1>
+          <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
+            One-time owner setup for this LabPro LIMS instance.
+          </p>
         </div>
 
         <motion.div
@@ -99,13 +112,29 @@ export default function SetupPage() {
         >
           <div className="mb-5 flex items-center gap-2 text-sm font-semibold text-slate-900 dark:text-white">
             <FiShield className="text-blue-600 dark:text-blue-400" size={16} />
-            Owner-controlled bootstrap
+            Super Admin Registration
           </div>
           <form onSubmit={handleSubmit} className="space-y-4">
             <AnimatePresence>{error && <ErrorAlert message={error} />}</AnimatePresence>
 
             <label className="block">
-              <span className="label">Super Admin Email</span>
+              <span className="label">Administrator Name</span>
+              <div className="relative">
+                <FieldIcon icon={FiUser} />
+                <input
+                  type="text"
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  className="field pl-9"
+                  placeholder="e.g. Dr. Raghav Sharma"
+                  autoComplete="name"
+                  required
+                />
+              </div>
+            </label>
+
+            <label className="block">
+              <span className="label">Email Address</span>
               <div className="relative">
                 <FieldIcon icon={FiMail} />
                 <input
@@ -172,16 +201,16 @@ export default function SetupPage() {
 
             <button
               type="submit"
-              disabled={loading || adminConfigured}
+              disabled={loading}
               className="btn-primary w-full py-3"
             >
               {loading ? (
                 <span className="flex items-center justify-center gap-2">
-                  <Spinner /> Creating owner account...
+                  <Spinner /> Creating Super Admin...
                 </span>
               ) : (
                 <span className="flex items-center justify-center gap-2">
-                  Create Owner Account <FiArrowRight size={15} />
+                  Create Super Admin <FiArrowRight size={15} />
                 </span>
               )}
             </button>
@@ -191,3 +220,4 @@ export default function SetupPage() {
     </div>
   );
 }
+

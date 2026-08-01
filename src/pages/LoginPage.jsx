@@ -5,6 +5,7 @@ import {
   FiEye, FiEyeOff, FiLock, FiMail, FiAlertCircle, FiArrowRight,
 } from 'react-icons/fi';
 import { useAuth } from '../context/AuthContext';
+import { useSuperAdmin } from '../context/SuperAdminContext';
 
 /* ────────────────────────────────────────────────────────── */
 /*  Shared UI helpers (keep existing project styles)          */
@@ -67,17 +68,18 @@ export default function LoginPage() {
 }
 
 /* ────────────────────────────────────────────────────────── */
-/*  Login Form                                               */
+/*  Unified Login Form — Super Admin first, then Laboratory  */
 /* ────────────────────────────────────────────────────────── */
 
 function LoginForm() {
   const [email,      setEmail]      = useState('');
   const [password,   setPassword]   = useState('');
   const [showPwd,    setShowPwd]    = useState(false);
-  const [rememberMe, setRememberMe] = useState(false);
+  const [rememberMe, setRememberMe] = useState(true);
   const [error,      setError]      = useState('');
   const [loading,    setLoading]    = useState(false);
   const { login } = useAuth();
+  const { adminLogin } = useSuperAdmin();
   const navigate = useNavigate();
   const location = useLocation();
   const from = location.state?.from?.pathname || '/dashboard';
@@ -89,10 +91,24 @@ function LoginForm() {
     if (!password)     { setError('Password is required.'); return; }
     setLoading(true);
     try {
-      await login(email.trim(), password, rememberMe);
-      navigate(from, { replace: true });
-    } catch (err) {
-      setError(err.message);
+      // 1) Try Super Admin
+      try {
+        await adminLogin(email.trim(), password, rememberMe);
+        navigate('/admin', { replace: true });
+        return;
+      } catch {
+        // Admin failed — fall through to lab login
+      }
+
+      // 2) Try Laboratory account
+      try {
+        await login(email.trim(), password, rememberMe);
+        navigate(from, { replace: true });
+        return;
+      } catch {
+        // Both failed — show a single friendly error
+        setError('Invalid Email or Password.');
+      }
     } finally {
       setLoading(false);
     }

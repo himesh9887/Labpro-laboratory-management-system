@@ -4,8 +4,7 @@
  * Super Admin authentication and laboratory management service.
  *
  * Super Admin credentials:
- *   email:    admin@fastcoders.in
- *   password: stored as SHA-256 hash in global key 'labpro_admin_auth'
+ *   email + name stored with SHA-256 password hash in global key 'labpro_admin_auth'
  *
  * All Super Admin data is stored in the global namespace (labpro_*)
  * and is completely separate from laboratory data.
@@ -25,6 +24,7 @@ const LOGIN_HISTORY_KEY = 'login_history'; // labpro_login_history
 const ACTIVITY_LOG_KEY = 'admin_activity_log';  // labpro_admin_activity_log
 const NOTIFICATIONS_KEY = 'notifications'; // labpro_notifications
 const BACKUP_KEY = 'backup_metadata'; // labpro_backup_metadata
+const PLATFORM_KEY = 'platform_settings'; // labpro_platform_settings
 
 /* ─── Plan Definitions ───────────────────────────────────── */
 
@@ -95,6 +95,7 @@ const STATUS_ICON = {
   backup_restored: '♻️',
   password_reset: '🔑',
   plan_changed: '📊',
+  settings_saved: '⚙️',
 };
 
 const STATUS_TITLE = {
@@ -109,6 +110,7 @@ const STATUS_TITLE = {
   backup_restored: 'Backup Restored',
   password_reset: 'Password Reset',
   plan_changed: 'Plan Changed',
+  settings_saved: 'Settings Saved',
 };
 
 /* ─── Admin Auth ──────────────────────────────────────────── */
@@ -118,18 +120,19 @@ const adminService = {
    * Initialize the single super admin account on first run.
    * No default email/password are shipped in source code.
    */
-  async initializeAdmin({ email, password }) {
+  async initializeAdmin({ name, email, password }) {
     const existing = storageService.get(ADMIN_KEY, null);
     if (existing) {
       throw new Error('The super admin account has already been configured.');
     }
 
-    if (!email?.trim() || !password?.trim()) {
-      throw new Error('An email address and password are required to create the super admin account.');
+    if (!name?.trim() || !email?.trim() || !password?.trim()) {
+      throw new Error('An administrator name, email address and password are required to create the super admin account.');
     }
 
     const passwordHash = await hashPassword(password);
     storageService.set(ADMIN_KEY, {
+      name: name.trim(),
       email: email.trim().toLowerCase(),
       passwordHash,
       role: 'super_admin',
@@ -146,6 +149,30 @@ const adminService = {
   },
 
   /**
+   * Read platform settings (with defaults).
+   */
+  getPlatformSettings() {
+    const defaults = {
+      platformName: 'LabPro LIMS',
+      platformEmail: 'support@labpro.in',
+      allowSelfRegistration: false,
+      requireApproval: false,
+      retentionDays: 90,
+      sessionTimeout: 60,
+    };
+    return { ...defaults, ...(storageService.get(PLATFORM_KEY, {})) };
+  },
+
+  /**
+   * Persist platform settings.
+   */
+  savePlatformSettings(settings) {
+    storageService.set(PLATFORM_KEY, { ...this.getPlatformSettings(), ...settings });
+    this.logActivity('settings_saved', 'Platform settings updated');
+    return true;
+  },
+
+  /**
    * Verify super admin login credentials.
    */
   async verifyAdminLogin(email, password) {
@@ -157,7 +184,7 @@ const adminService = {
     const ok = await verifyPassword(password, admin.passwordHash);
     if (!ok) return null;
 
-    return { email: admin.email, role: admin.role };
+    return { email: admin.email, role: admin.role, name: admin.name || 'Super Admin' };
   },
 
   /**
@@ -214,9 +241,11 @@ const adminService = {
       pincode:      formData.pincode.trim(),
       gstNumber:    formData.gstNumber?.trim() || '',
       logo:         formData.logo || null,
-      status:       LAB_STATUS.ACTIVE,
+      status:       formData.status || LAB_STATUS.ACTIVE,
       plan:         formData.plan || 'basic',
-      planStartDate: new Date().toISOString(),
+      planStartDate: formData.startDate
+        ? new Date(formData.startDate).toISOString()
+        : new Date().toISOString(),
       planExpiryDate: formData.expiryDate
         ? new Date(formData.expiryDate).toISOString()
         : new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString(),
@@ -600,54 +629,68 @@ const adminService = {
   /* ─── Backup & Restore ──────────────────────────────────── */
 
   createBackup(labId = null) {
-    const backup = {};
+    const data = {};
 
     if (labId) {
       // Backup single lab
       const scoped = createScopedStorage(labId);
-      backup[labId] = scoped.exportAll();
+      data[labId] = scoped.exportAll();
     } else {
       // Backup all labs
       const labs = this.getAllLabs();
       labs.forEach(lab => {
         if (lab.status === LAB_STATUS.DELETED) return;
         const scoped = createScopedStorage(lab.labId);
-        backup[lab.labId] = scoped.exportAll();
+        data[lab.labId] = scoped.exportAll();
       });
       // Also backup admin data
-      backup.__admin__ = {
+      data.__admin__ = {
         registry: storageService.get('registry'),
         payments: storageService.get('payment_history'),
         loginHistory: storageService.get('login_history'),
         adminAuth: storageService.get('admin_auth'),
+        platformSettings: storageService.get('platform_settings'),
       };
     }
 
-    const meta = {
+    const labKeys = Object.keys(data).filter(k => k !== '__admin__');
+    const record = {
       id: `BACKUP-${Date.now()}`,
-      timestamp: new Date().toISOString(),
-      labCount: Object.keys(backup).filter(k => k !== '__admin__').length,
+      name: `backup-${new Date().toISOString().slice(0, 10)}`,
+      createdAt: new Date().toISOString(),
+      labCount: labKeys.length,
+      recordCount: labKeys.length,
       labId: labId || 'all',
+      data,
     };
 
     const backups = storageService.get(BACKUP_KEY, []);
-    storageService.set(BACKUP_KEY, [meta, ...backups].slice(0, 20));
+    storageService.set(BACKUP_KEY, [record, ...backups].slice(0, 20));
 
-    this.logActivity('backup_created', `Backup ${meta.id} created (${meta.labCount} labs)`);
+    this.logActivity('backup_created', `Backup ${record.id} created (${record.labCount} labs)`);
 
-    return { meta, data: backup };
+    return record;
+  },
+
+  /**
+   * Return full backup history (includes snapshot data for restore/export).
+   */
+  getBackupHistory() {
+    return storageService.get(BACKUP_KEY, []);
   },
 
   restoreBackup(backupData) {
-    if (!backupData?.data) throw new Error('Invalid backup data');
+    const payload = backupData?.data || backupData;
+    if (!payload) throw new Error('Invalid backup data');
 
-    Object.entries(backupData.data).forEach(([key, data]) => {
+    Object.entries(payload).forEach(([key, data]) => {
       if (key === '__admin__') {
         // Restore admin data
         if (data.registry) storageService.set('registry', data.registry);
         if (data.payments) storageService.set('payment_history', data.payments);
         if (data.loginHistory) storageService.set('login_history', data.loginHistory);
         if (data.adminAuth) storageService.set('admin_auth', data.adminAuth);
+        if (data.platformSettings) storageService.set('platform_settings', data.platformSettings);
       } else {
         // Restore lab data
         const scoped = createScopedStorage(key);
@@ -655,12 +698,39 @@ const adminService = {
       }
     });
 
-    this.logActivity('backup_restored', `Backup restored with ${Object.keys(backupData.data).filter(k => k !== '__admin__').length} labs`);
+    this.logActivity('backup_restored', `Backup restored with ${Object.keys(payload).filter(k => k !== '__admin__').length} labs`);
     return true;
   },
 
+  /**
+   * Import an externally uploaded backup file.
+   */
+  importBackup(parsed) {
+    const payload = parsed?.data || parsed;
+    if (!payload) throw new Error('Invalid backup file');
+
+    // Re-hydrate the backup list with the imported snapshot
+    const record = {
+      id: parsed?.id || `BACKUP-${Date.now()}`,
+      name: parsed?.name || `imported-${new Date().toISOString().slice(0, 10)}`,
+      createdAt: parsed?.createdAt || new Date().toISOString(),
+      labCount: Object.keys(payload).filter(k => k !== '__admin__').length,
+      recordCount: Object.keys(payload).filter(k => k !== '__admin__').length,
+      labId: parsed?.labId || 'all',
+      data: payload,
+    };
+
+    const backups = storageService.get(BACKUP_KEY, []);
+    storageService.set(BACKUP_KEY, [record, ...backups].slice(0, 20));
+
+    // Restore the imported snapshot immediately
+    this.restoreBackup(record);
+
+    return record;
+  },
+
   getBackups() {
-    return storageService.get(BACKUP_KEY, []);
+    return this.getBackupHistory();
   },
 
   /* ─── Analytics ─────────────────────────────────────────── */
