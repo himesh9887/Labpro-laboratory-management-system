@@ -1,4 +1,4 @@
-/**
+ /**
  * LABPRO TEST MASTER - Centralized Test Catalog
  * Single source of truth for all laboratory tests.
  * Add new tests here ONLY - no UI code changes needed.
@@ -1101,6 +1101,16 @@ export const DEPARTMENTS = [
  */
 export const getParameterNames = (test) =>
   (test.parameters || []).map((p) => (typeof p === 'string' ? p : p.name));
+
+/**
+ * Build the default test catalog (used to seed a new lab's isolated storage).
+ */
+export const buildDefaultTests = () =>
+  TEST_MASTER.map((t, i) => ({
+    ...t,
+    id: `TST-${String(i + 1).padStart(3, '0')}`,
+    parameters: getParameterNames(t),
+  }));
 
 /**
  * Convert TEST_MASTER entry to invoice catalog format

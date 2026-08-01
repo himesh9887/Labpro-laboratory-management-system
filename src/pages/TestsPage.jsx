@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { FiEdit2, FiPlus, FiSearch, FiTrash2, FiActivity, FiFilter } from 'react-icons/fi';
 import toast from 'react-hot-toast';
 import PageHeader from '../components/common/PageHeader';
@@ -6,25 +6,52 @@ import Modal from '../components/ui/Modal';
 import ConfirmDialog from '../components/ui/ConfirmDialog';
 import NumericInput from '../components/ui/NumericInput';
 import { TEST_MASTER, DEPARTMENTS, getParameterNames } from '../data/testMaster';
+import { useAuth } from '../context/AuthContext';
 
-// Build initial list from centralized master
-const buildInitialTests = () =>
-  TEST_MASTER.map((t, i) => ({
+const TESTS_KEY = 'tests';
+const ALL_STATUSES = ['Active', 'Inactive'];
+
+// Build default list from centralized master
+function buildDefaultTests() {
+  return TEST_MASTER.map((t, i) => ({
     ...t,
     id: `TST-${String(i + 1).padStart(3, '0')}`,
     parameters: getParameterNames(t),
   }));
-
-const ALL_STATUSES = ['Active', 'Inactive'];
+}
 
 export default function TestsPage() {
-  const [tests, setTests] = useState(buildInitialTests);
-  const [search, setSearch] = useState('');
-  const [deptFilter, setDeptFilter] = useState('');
-  const [modalOpen, setModalOpen] = useState(false);
+  const { scopedStorage } = useAuth();
+
+  // Initialize with master defaults
+  const [tests, setTests] = useState(() => buildDefaultTests());
+
+  // If scopedStorage becomes available (login), load from it
+  useEffect(() => {
+    if (!scopedStorage) return;
+    const stored = scopedStorage.get(TESTS_KEY, null);
+    if (stored && Array.isArray(stored) && stored.length > 0) {
+      setTests(stored);
+    } else {
+      // First time — seed master defaults into scoped storage
+      const defaults = buildDefaultTests();
+      scopedStorage.set(TESTS_KEY, defaults);
+      setTests(defaults);
+    }
+  }, [scopedStorage]);
+
+  // Persist any change to scoped storage
+  const persistTests = (arr) => {
+    if (scopedStorage) scopedStorage.set(TESTS_KEY, arr);
+    setTests(arr);
+  };
+
+  const [search,      setSearch]      = useState('');
+  const [deptFilter,  setDeptFilter]  = useState('');
+  const [modalOpen,   setModalOpen]   = useState(false);
   const [confirmOpen, setConfirmOpen] = useState(false);
-  const [editing, setEditing] = useState(null);
-  const [deleteId, setDeleteId] = useState(null);
+  const [editing,     setEditing]     = useState(null);
+  const [deleteId,    setDeleteId]    = useState(null);
 
   const filtered = useMemo(() =>
     tests.filter(t => {
@@ -36,12 +63,12 @@ export default function TestsPage() {
     [tests, search, deptFilter]
   );
 
-  const openAdd = () => { setEditing(null); setModalOpen(true); };
+  const openAdd  = () => { setEditing(null); setModalOpen(true); };
   const openEdit = (item) => { setEditing(item); setModalOpen(true); };
   const confirmDelete = (id) => { setDeleteId(id); setConfirmOpen(true); };
 
   const handleDelete = () => {
-    setTests(prev => prev.filter(t => t.id !== deleteId));
+    persistTests(tests.filter(t => t.id !== deleteId));
     setConfirmOpen(false);
     setDeleteId(null);
     toast.success('Test removed');
@@ -49,20 +76,18 @@ export default function TestsPage() {
 
   const handleSave = (formData) => {
     if (editing) {
-      setTests(prev => prev.map(t => t.id === editing.id ? { ...t, ...formData } : t));
+      persistTests(tests.map(t => t.id === editing.id ? { ...t, ...formData } : t));
       toast.success('Test updated');
     } else {
       const newId = `TST-${String(tests.length + 1).padStart(3, '0')}`;
-      setTests(prev => [...prev, { id: newId, ...formData, status: 'Active' }]);
+      persistTests([...tests, { id: newId, ...formData, status: 'Active' }]);
       toast.success('Test added');
     }
     setModalOpen(false);
   };
 
-  // All departments present in current list
   const activeDepts = useMemo(() => {
-    const depts = [...new Set(tests.map(t => t.department))].sort();
-    return depts;
+    return [...new Set(tests.map(t => t.department))].sort();
   }, [tests]);
 
   return (

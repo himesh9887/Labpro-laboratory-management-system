@@ -1,41 +1,69 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { FiEdit2, FiPlus, FiTrash2, FiUserPlus } from 'react-icons/fi';
 import toast from 'react-hot-toast';
 import PageHeader from '../components/common/PageHeader';
 import Modal from '../components/ui/Modal';
 import SearchInput from '../components/ui/SearchInput';
 import ConfirmDialog from '../components/ui/ConfirmDialog';
+import { useAuth } from '../context/AuthContext';
 
-const initialStaff = [
-  { id: 'STF-001', name: 'Dr. Kavita Menon', role: 'Administrator', email: 'kavita@labpro.in', phone: '+91 98450 12345', department: 'Administration', active: true },
-  { id: 'STF-002', name: 'Mr. Ravi Deshmukh', role: 'Lab Technician', email: 'ravi@labpro.in', phone: '+91 98765 43210', department: 'Hematology', active: true },
-  { id: 'STF-003', name: 'Ms. Priya Sharma', role: 'Lab Technician', email: 'priya@labpro.in', phone: '+91 99887 66554', department: 'Biochemistry', active: true },
-  { id: 'STF-004', name: 'Mr. Sunil Verma', role: 'Pathologist', email: 'sunil@labpro.in', phone: '+91 98765 01122', department: 'Pathology', active: true },
-  { id: 'STF-005', name: 'Mrs. Anjali Gupta', role: 'Receptionist', email: 'anjali@labpro.in', phone: '+91 97654 32100', department: 'Front Office', active: true },
-  { id: 'STF-006', name: 'Mr. Amit Patel', role: 'Phlebotomist', email: 'amit@labpro.in', phone: '+91 96543 21009', department: 'Collection', active: false },
+const STAFF_KEY = 'staff';
+
+const DEFAULT_STAFF = [
+  { id: 'STF-001', name: 'Dr. Kavita Menon',    role: 'Administrator',  email: 'kavita@labpro.in',  phone: '+91 98450 12345', department: 'Administration', active: true },
+  { id: 'STF-002', name: 'Mr. Ravi Deshmukh',   role: 'Lab Technician', email: 'ravi@labpro.in',    phone: '+91 98765 43210', department: 'Hematology',      active: true },
+  { id: 'STF-003', name: 'Ms. Priya Sharma',    role: 'Lab Technician', email: 'priya@labpro.in',   phone: '+91 99887 66554', department: 'Biochemistry',    active: true },
+  { id: 'STF-004', name: 'Mr. Sunil Verma',     role: 'Pathologist',    email: 'sunil@labpro.in',   phone: '+91 98765 01122', department: 'Pathology',       active: true },
+  { id: 'STF-005', name: 'Mrs. Anjali Gupta',   role: 'Receptionist',   email: 'anjali@labpro.in',  phone: '+91 97654 32100', department: 'Front Office',    active: true },
+  { id: 'STF-006', name: 'Mr. Amit Patel',      role: 'Phlebotomist',   email: 'amit@labpro.in',    phone: '+91 96543 21009', department: 'Collection',      active: false },
 ];
 
 const roles = ['Administrator', 'Pathologist', 'Lab Technician', 'Phlebotomist', 'Receptionist', 'Billing Staff', 'Quality Manager'];
 const departments = ['Administration', 'Hematology', 'Biochemistry', 'Immunoassay', 'Microbiology', 'Pathology', 'Molecular Biology', 'Front Office', 'Collection', 'Billing'];
 
 export default function StaffPage() {
-  const [staff, setStaff] = useState(initialStaff);
-  const [search, setSearch] = useState('');
-  const [modalOpen, setModalOpen] = useState(false);
+  const { scopedStorage } = useAuth();
+
+  // Load staff from scoped storage, fall back to defaults
+  const [staff, setStaff] = useState(() => {
+    return DEFAULT_STAFF;
+  });
+
+  // If scopedStorage becomes available (login), load from it
+  useEffect(() => {
+    if (!scopedStorage) return;
+    const stored = scopedStorage.get(STAFF_KEY, null);
+    if (stored && Array.isArray(stored) && stored.length > 0) {
+      setStaff(stored);
+    } else {
+      // First time — seed defaults
+      scopedStorage.set(STAFF_KEY, DEFAULT_STAFF);
+      setStaff(DEFAULT_STAFF);
+    }
+  }, [scopedStorage]);
+
+  // Persist changes to scoped storage
+  const persistStaff = (arr) => {
+    if (scopedStorage) scopedStorage.set(STAFF_KEY, arr);
+    setStaff(arr);
+  };
+
+  const [search,      setSearch]      = useState('');
+  const [modalOpen,   setModalOpen]   = useState(false);
   const [confirmOpen, setConfirmOpen] = useState(false);
-  const [editing, setEditing] = useState(null);
-  const [deleteId, setDeleteId] = useState(null);
+  const [editing,     setEditing]     = useState(null);
+  const [deleteId,    setDeleteId]    = useState(null);
 
   const filtered = staff.filter(s =>
     `${s.name} ${s.email} ${s.role} ${s.department}`.toLowerCase().includes(search.toLowerCase())
   );
 
-  const openAdd = () => { setEditing(null); setModalOpen(true); };
+  const openAdd  = () => { setEditing(null); setModalOpen(true); };
   const openEdit = (item) => { setEditing(item); setModalOpen(true); };
   const confirmDelete = (id) => { setDeleteId(id); setConfirmOpen(true); };
 
   const handleDelete = () => {
-    setStaff(prev => prev.filter(s => s.id !== deleteId));
+    persistStaff(staff.filter(s => s.id !== deleteId));
     setConfirmOpen(false);
     setDeleteId(null);
     toast.success('Staff member removed');
@@ -43,11 +71,11 @@ export default function StaffPage() {
 
   const handleSave = (formData) => {
     if (editing) {
-      setStaff(prev => prev.map(s => s.id === editing.id ? { ...s, ...formData } : s));
+      persistStaff(staff.map(s => s.id === editing.id ? { ...s, ...formData } : s));
       toast.success('Staff updated');
     } else {
       const newId = `STF-${String(staff.length + 1).padStart(3, '0')}`;
-      setStaff(prev => [...prev, { id: newId, ...formData, active: true }]);
+      persistStaff([...staff, { id: newId, ...formData, active: true }]);
       toast.success('Staff added');
     }
     setModalOpen(false);
@@ -111,7 +139,6 @@ export default function StaffPage() {
 
 function StaffFormModal({ open, onClose, onSave, initial, roles, departments }) {
   const [form, setForm] = useState(initial || { name: '', email: '', phone: '', role: 'Lab Technician', department: 'Biochemistry' });
-
   const set = (field, value) => setForm(prev => ({ ...prev, [field]: value }));
 
   const handleSubmit = (e) => {
@@ -157,4 +184,3 @@ function StaffFormModal({ open, onClose, onSave, initial, roles, departments }) 
     </Modal>
   );
 }
-

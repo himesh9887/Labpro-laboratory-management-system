@@ -13,7 +13,7 @@ import {
   FiActivity, FiAlertCircle, FiArrowRight, FiBarChart2,
   FiCheckCircle, FiClock, FiDollarSign, FiFilePlus,
   FiFileText, FiSearch, FiTrendingUp, FiUsers, FiZap,
-  FiCalendar, FiPackage,
+  FiCalendar,
 } from 'react-icons/fi';
 import {
   Area, AreaChart, CartesianGrid, Cell, Pie, PieChart,
@@ -25,6 +25,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import PageHeader           from '../components/common/PageHeader';
 import MetricCard           from '../components/dashboard/MetricCard';
 import StatusBadge          from '../components/common/StatusBadge';
+import { useAuth }          from '../context/AuthContext';
 import { useData }          from '../context/DataContext';
 import { useDashboardAnalytics } from '../hooks/useDashboardAnalytics';
 import { useClock }         from '../hooks/useClock';
@@ -252,6 +253,7 @@ function GlobalSearch({ invoices, reports, patients }) {
 /* ═══════════════════════════════════════════════════════ */
 
 export default function DashboardPage() {
+  const { user } = useAuth();
   const { invoices, allInvoices, reports, patients, activityLog, todayStats } = useData();
   const clock = useClock();
 
@@ -280,7 +282,7 @@ export default function DashboardPage() {
     <>
       {/* ── Header ─────────────────────────────────────── */}
       <PageHeader
-        title={`${clock.greeting}, Dr. Menon`}
+        title={`${clock.greeting}, ${user?.adminName || user?.name || 'Administrator'}`}
         description={`${clock.dayStr}, ${clock.dateStr} · Real-time laboratory operations overview`}
         action={
           <div className="flex flex-wrap items-center gap-3">

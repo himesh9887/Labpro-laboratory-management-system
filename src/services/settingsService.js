@@ -2,46 +2,59 @@
  * settingsService.js
  * ──────────────────
  * Reads and writes LabPro application settings.
- * Key: labpro_settings
+ * Factory: call createSettingsService(scopedStorage) for a lab-scoped instance.
+ * Key: settings
+ *
+ * Each laboratory has completely independent settings including lab profile,
+ * retention preferences, theme, etc.
  */
 
+export function createSettingsService(storage) {
+  const KEY = 'settings';
+
+  const DEFAULTS = {
+    autoClear: true,
+    keepHistory: true,
+    retentionDays: 7,
+    labProfile: {
+      name:    '',
+      license: '',
+      email:   '',
+      phone:   '',
+      address: '',
+      website: '',
+      logo:    null,
+    },
+  };
+
+  return {
+    getSettings() {
+      const stored = storage.get(KEY, {});
+      return {
+        ...DEFAULTS,
+        ...stored,
+        labProfile: { ...DEFAULTS.labProfile, ...(stored.labProfile || {}) },
+      };
+    },
+
+    saveSettings(patch) {
+      const current = this.getSettings();
+      const updated = { ...current, ...patch };
+      if (patch.labProfile) {
+        updated.labProfile = { ...current.labProfile, ...patch.labProfile };
+      }
+      storage.set(KEY, updated);
+      return updated;
+    },
+
+    resetSettings() {
+      storage.set(KEY, DEFAULTS);
+      return DEFAULTS;
+    },
+  };
+}
+
+/* ── Legacy singleton (do NOT use for new code) ──────── */
 import storageService from './storageService';
-
-const KEY = 'settings';
-
-const DEFAULTS = {
-  autoClear: true,          // Reset daily data at midnight
-  keepHistory: true,        // Archive old invoices instead of deleting
-  retentionDays: 7,         // 1 | 7 | 15 | 30 | null (never)
-  labProfile: {
-    name: 'LabPro Diagnostics',
-    license: 'NABL-2026-48091',
-    email: 'care@labprodiagnostics.in',
-    phone: '+91 80 4567 8900',
-    address: '24, Health Plaza, Indiranagar, Bengaluru, Karnataka 560038',
-  },
-};
-
-const settingsService = {
-  getSettings() {
-    const stored = storageService.get(KEY, {});
-    return { ...DEFAULTS, ...stored, labProfile: { ...DEFAULTS.labProfile, ...(stored.labProfile || {}) } };
-  },
-
-  saveSettings(patch) {
-    const current = this.getSettings();
-    const updated = { ...current, ...patch };
-    if (patch.labProfile) {
-      updated.labProfile = { ...current.labProfile, ...patch.labProfile };
-    }
-    storageService.set(KEY, updated);
-    return updated;
-  },
-
-  resetSettings() {
-    storageService.set(KEY, DEFAULTS);
-    return DEFAULTS;
-  },
-};
-
-export default settingsService;
+const _legacy = createSettingsService(storageService);
+export default _legacy;

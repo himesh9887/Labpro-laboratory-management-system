@@ -3,6 +3,11 @@
  * ───────────────
  * Single React Context that owns ALL persisted application data.
  *
+ * MULTI-LAB ISOLATION:
+ *   All services are created as factory instances bound to the current
+ *   lab's scopedStorage (e.g. labpro_LAB001_invoices). Data from one
+ *   lab NEVER leaks into another.
+ *
  * Exposes:
  *   invoices      — today's invoices (React state, auto-updates)
  *   allInvoices   — today + all history (for multi-day charts)
@@ -13,11 +18,11 @@
  *   todayStats    — pre-computed daily metrics
  *
  * Every mutation (add/update/delete) automatically:
- *   1. Writes to localStorage via the service
+ *   1. Writes to lab-scoped localStorage via the service
  *   2. Updates the relevant React state array (reactive)
  *   3. Appends a timestamped event to activityLog
  *
- * Future-ready: swap service calls for API calls here without
+ * Future-ready: swap service factory calls for API calls here without
  * touching any UI component.
  */
 
@@ -30,54 +35,78 @@ import {
   useState,
 } from 'react';
 
-import invoiceService  from '../services/invoiceService';
-import patientService  from '../services/patientService';
-import reportService   from '../services/reportService';
-import settingsService from '../services/settingsService';
-import storageService  from '../services/storageService';
-import activityService, { EVENT_TYPES } from '../services/activityService';
-import { useDailyReset } from '../hooks/useDailyReset';
+import { createInvoiceService }  from '../services/invoiceService';
+import { createPatientService }  from '../services/patientService';
+import { createReportService }   from '../services/reportService';
+import { createSettingsService } from '../services/settingsService';
+import { createActivityService, EVENT_TYPES } from '../services/activityService';
+import { useDailyReset }         from '../hooks/useDailyReset';
+import { useAuth }               from './AuthContext';
 
 const DataContext = createContext(null);
 
 /* ─────────────────────────────────────────────────────── */
 
 export function DataProvider({ children }) {
-  // Run daily reset before loading data
-  useDailyReset();
+  const { scopedStorage, labId, isAuthenticated } = useAuth();
+
+  // ── Build scoped service instances ──────────────────────
+  // These are recreated whenever the logged-in lab changes.
+  const invoiceSvc  = useMemo(() => scopedStorage ? createInvoiceService(scopedStorage)  : null, [scopedStorage]);
+  const patientSvc  = useMemo(() => scopedStorage ? createPatientService(scopedStorage)  : null, [scopedStorage]);
+  const reportSvc   = useMemo(() => scopedStorage ? createReportService(scopedStorage)   : null, [scopedStorage]);
+  const settingsSvc = useMemo(() => scopedStorage ? createSettingsService(scopedStorage) : null, [scopedStorage]);
+  const activitySvc = useMemo(() => scopedStorage ? createActivityService(scopedStorage) : null, [scopedStorage]);
+  // draftSvc is exposed via useDraft hook directly — not needed here
+
+  // Run daily reset before loading data (passes current scopedStorage)
+  useDailyReset(scopedStorage);
 
   // ── State ───────────────────────────────────────────────
-  const [invoices,     setInvoices]     = useState(() => invoiceService.loadInvoices());
-  const [allInvoices,  setAllInvoices]  = useState(() => invoiceService.loadAllInvoices());
-  const [patients,     setPatients]     = useState(() => patientService.loadPatients());
-  const [reports,      setReports]      = useState(() => reportService.loadReports());
-  const [settings,     setSettings]     = useState(() => settingsService.getSettings());
-  const [activityLog,  setActivityLog]  = useState(() => activityService.loadLog());
+  const [invoices,    setInvoices]    = useState([]);
+  const [allInvoices, setAllInvoices] = useState([]);
+  const [patients,    setPatients]    = useState([]);
+  const [reports,     setReports]     = useState([]);
+  const [settings,    setSettings]    = useState({});
+  const [activityLog, setActivityLog] = useState([]);
 
-  // Re-sync from storage after daily reset fires
+  // ── Re-load all data when lab changes (login/logout) ────
   useEffect(() => {
-    setInvoices(invoiceService.loadInvoices());
-    setAllInvoices(invoiceService.loadAllInvoices());
-    setPatients(patientService.loadPatients());
-    setReports(reportService.loadReports());
-    setActivityLog(activityService.loadLog());
-  }, []); // intentionally once, post-reset
+    if (!isAuthenticated || !invoiceSvc) {
+      setInvoices([]);
+      setAllInvoices([]);
+      setPatients([]);
+      setReports([]);
+      setSettings({});
+      setActivityLog([]);
+      return;
+    }
+    setInvoices(invoiceSvc.loadInvoices());
+    setAllInvoices(invoiceSvc.loadAllInvoices());
+    setPatients(patientSvc.loadPatients());
+    setReports(reportSvc.loadReports());
+    setSettings(settingsSvc.getSettings());
+    setActivityLog(activitySvc.loadLog());
+  }, [labId, isAuthenticated, invoiceSvc, patientSvc, reportSvc, settingsSvc, activitySvc]);
 
   /* ── helper: add activity event and update state ─────── */
   const logActivity = useCallback((type, title, detail = '') => {
-    activityService.addEvent(type, title, detail);
-    setActivityLog(activityService.loadLog());
-  }, []);
+    if (!activitySvc) return;
+    activitySvc.addEvent(type, title, detail);
+    setActivityLog(activitySvc.loadLog());
+  }, [activitySvc]);
 
   /* ── helper: sync all invoice states ────────────────── */
   const syncInvoices = useCallback(() => {
-    setInvoices(invoiceService.loadInvoices());
-    setAllInvoices(invoiceService.loadAllInvoices());
-  }, []);
+    if (!invoiceSvc) return;
+    setInvoices(invoiceSvc.loadInvoices());
+    setAllInvoices(invoiceSvc.loadAllInvoices());
+  }, [invoiceSvc]);
 
   // ── Invoice actions ─────────────────────────────────────
   const addInvoice = useCallback((data) => {
-    const inv = invoiceService.addInvoice(data);
+    if (!invoiceSvc) return null;
+    const inv = invoiceSvc.addInvoice(data);
     if (inv) {
       syncInvoices();
       logActivity(
@@ -85,7 +114,6 @@ export function DataProvider({ children }) {
         'Invoice Created',
         `${inv.invoiceNo} · ${inv.patientName} · ₹${Number(inv.grandTotal || 0).toLocaleString('en-IN')}`
       );
-      // Also log payment if fully paid
       if ((inv.dueAmount || 0) === 0 && (inv.paidAmount || 0) > 0) {
         logActivity(
           EVENT_TYPES.PAYMENT_RECEIVED,
@@ -95,68 +123,74 @@ export function DataProvider({ children }) {
       }
     }
     return inv;
-  }, [syncInvoices, logActivity]);
+  }, [invoiceSvc, syncInvoices, logActivity]);
 
   const deleteInvoice = useCallback((invoiceNo) => {
-    const inv = invoiceService.loadInvoices().find(i => i.invoiceNo === invoiceNo);
-    invoiceService.deleteInvoice(invoiceNo);
+    if (!invoiceSvc) return;
+    const inv = invoiceSvc.loadInvoices().find(i => i.invoiceNo === invoiceNo);
+    invoiceSvc.deleteInvoice(invoiceNo);
     syncInvoices();
     logActivity(
       EVENT_TYPES.INVOICE_DELETED,
       'Invoice Deleted',
       `${invoiceNo}${inv ? ` · ${inv.patientName}` : ''}`
     );
-  }, [syncInvoices, logActivity]);
+  }, [invoiceSvc, syncInvoices, logActivity]);
 
   const updateTimeline = useCallback((invoiceNo, stepKey) => {
+    if (!invoiceSvc) return;
     const label = stepKey.charAt(0).toUpperCase() + stepKey.slice(1);
-    invoiceService.updateTimeline(invoiceNo, stepKey);
+    invoiceSvc.updateTimeline(invoiceNo, stepKey);
     syncInvoices();
     logActivity(
       EVENT_TYPES.TIMELINE_UPDATED,
       `Status: ${label}`,
       `Invoice ${invoiceNo} → ${stepKey}`
     );
-  }, [syncInvoices, logActivity]);
+  }, [invoiceSvc, syncInvoices, logActivity]);
 
   // ── Patient actions ─────────────────────────────────────
   const addPatient = useCallback((patient) => {
-    const p = patientService.addPatient(patient);
-    setPatients(patientService.loadPatients());
+    if (!patientSvc) return null;
+    const p = patientSvc.addPatient(patient);
+    setPatients(patientSvc.loadPatients());
     logActivity(
       EVENT_TYPES.PATIENT_REGISTERED,
       'Patient Registered',
       `${p.name}${p.phone ? ` · ${p.phone}` : ''}`
     );
     return p;
-  }, [logActivity]);
+  }, [patientSvc, logActivity]);
 
   const updatePatient = useCallback((id, patch) => {
-    patientService.updatePatient(id, patch);
-    setPatients(patientService.loadPatients());
-  }, []);
+    if (!patientSvc) return;
+    patientSvc.updatePatient(id, patch);
+    setPatients(patientSvc.loadPatients());
+  }, [patientSvc]);
 
   const deletePatient = useCallback((id) => {
-    patientService.deletePatient(id);
-    setPatients(patientService.loadPatients());
-  }, []);
+    if (!patientSvc) return;
+    patientSvc.deletePatient(id);
+    setPatients(patientSvc.loadPatients());
+  }, [patientSvc]);
 
   // ── Report actions ──────────────────────────────────────
   const addReport = useCallback((data) => {
-    const r = reportService.addReport(data);
-    setReports(reportService.loadReports());
+    if (!reportSvc) return null;
+    const r = reportSvc.addReport(data);
+    setReports(reportSvc.loadReports());
     logActivity(
       EVENT_TYPES.REPORT_CREATED,
       'Report Generated',
       `${r.id} · ${r.patient}${r.tests ? ` · ${r.tests}` : ''}`
     );
     return r;
-  }, [logActivity]);
+  }, [reportSvc, logActivity]);
 
   const updateReport = useCallback((id, patch) => {
-    reportService.updateReport(id, patch);
-    setReports(reportService.loadReports());
-    // Log status-specific events
+    if (!reportSvc) return;
+    reportSvc.updateReport(id, patch);
+    setReports(reportSvc.loadReports());
     if (patch.status) {
       const statusEvents = {
         Verified: [EVENT_TYPES.REPORT_VERIFIED, 'Report Verified'],
@@ -169,53 +203,65 @@ export function DataProvider({ children }) {
     } else {
       logActivity(EVENT_TYPES.REPORT_UPDATED, 'Report Updated', `Report ${id}`);
     }
-  }, [logActivity]);
+  }, [reportSvc, logActivity]);
 
   const deleteReport = useCallback((id) => {
-    reportService.deleteReport(id);
-    setReports(reportService.loadReports());
+    if (!reportSvc) return;
+    reportSvc.deleteReport(id);
+    setReports(reportSvc.loadReports());
     logActivity(EVENT_TYPES.REPORT_DELETED, 'Report Deleted', `Report ${id}`);
-  }, [logActivity]);
+  }, [reportSvc, logActivity]);
 
   // ── Settings ────────────────────────────────────────────
   const updateSettings = useCallback((patch) => {
-    const updated = settingsService.saveSettings(patch);
+    if (!settingsSvc) return {};
+    const updated = settingsSvc.saveSettings(patch);
     setSettings(updated);
     return updated;
-  }, []);
+  }, [settingsSvc]);
 
   // ── Manual controls ─────────────────────────────────────
   const clearTodayData = useCallback(() => {
-    invoiceService.clearTodayInvoices();
-    invoiceService.resetCounter(new Date().toISOString().slice(0, 10));
+    if (!invoiceSvc) return;
+    invoiceSvc.clearTodayInvoices();
+    invoiceSvc.resetCounter(new Date().toISOString().slice(0, 10));
     setInvoices([]);
-    setAllInvoices(invoiceService.loadAllInvoices());
+    setAllInvoices(invoiceSvc.loadAllInvoices());
     logActivity(EVENT_TYPES.SETTINGS_SAVED, "Today's Data Cleared", '');
-  }, [logActivity]);
+  }, [invoiceSvc, logActivity]);
 
   const clearAllData = useCallback(() => {
-    storageService.clearAll();
+    if (!scopedStorage) return;
+    scopedStorage.clearAll();
     setInvoices([]);
     setAllInvoices([]);
     setPatients([]);
     setReports([]);
-    setSettings(settingsService.getSettings());
+    setSettings(settingsSvc ? settingsSvc.getSettings() : {});
     setActivityLog([]);
-  }, []);
+  }, [scopedStorage, settingsSvc]);
 
-  const exportData = useCallback(() => storageService.exportAll(), []);
+  const exportData = useCallback(() => {
+    if (!scopedStorage) return {};
+    return scopedStorage.exportAll();
+  }, [scopedStorage]);
 
   const importData = useCallback((jsonData) => {
-    storageService.importAll(jsonData);
-    setInvoices(invoiceService.loadInvoices());
-    setAllInvoices(invoiceService.loadAllInvoices());
-    setPatients(patientService.loadPatients());
-    setReports(reportService.loadReports());
-    setSettings(settingsService.getSettings());
-    setActivityLog(activityService.loadLog());
-  }, []);
+    if (!scopedStorage) return;
+    scopedStorage.importAll(jsonData);
+    if (!invoiceSvc || !patientSvc || !reportSvc || !settingsSvc || !activitySvc) return;
+    setInvoices(invoiceSvc.loadInvoices());
+    setAllInvoices(invoiceSvc.loadAllInvoices());
+    setPatients(patientSvc.loadPatients());
+    setReports(reportSvc.loadReports());
+    setSettings(settingsSvc.getSettings());
+    setActivityLog(activitySvc.loadLog());
+  }, [scopedStorage, invoiceSvc, patientSvc, reportSvc, settingsSvc, activitySvc]);
 
-  const loadHistory = useCallback(() => invoiceService.loadHistory(), []);
+  const loadHistory = useCallback(() => {
+    if (!invoiceSvc) return {};
+    return invoiceSvc.loadHistory();
+  }, [invoiceSvc]);
 
   // ── Today stats ─────────────────────────────────────────
   const todayStats = useMemo(() => {
@@ -238,10 +284,8 @@ export function DataProvider({ children }) {
     const pendingCount  = todayInvoices.filter(i => (i.dueAmount || 0) > 0).length;
     const avgInvoiceVal = todayInvoices.length > 0 ? revenue / todayInvoices.length : 0;
 
-    // All test counts from today's invoices
     const totalTests = todayInvoices.reduce((s, i) => s + (i.selectedTests?.length || 0), 0);
 
-    // Most performed test
     const testCounts = {};
     todayInvoices.forEach(inv => {
       (inv.selectedTests || []).forEach(t => {
@@ -287,7 +331,7 @@ export function DataProvider({ children }) {
     };
   }, [invoices, patients, reports]);
 
-  // ── History ─────────────────────────────────────────────
+  // ── Context value ────────────────────────────────────────
   const value = {
     // Data
     invoices,
@@ -297,6 +341,13 @@ export function DataProvider({ children }) {
     settings,
     activityLog,
     todayStats,
+
+    // Service instances (for hooks like useDraft)
+    invoiceSvc,
+    patientSvc,
+    reportSvc,
+    settingsSvc,
+    activitySvc,
 
     // Invoice actions
     addInvoice,

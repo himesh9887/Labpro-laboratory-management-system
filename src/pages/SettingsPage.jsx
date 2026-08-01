@@ -9,6 +9,7 @@ import ConfirmDialog from '../components/ui/ConfirmDialog';
 import { useApp } from '../context/AppContext';
 import { useData } from '../context/DataContext';
 import { useSettings } from '../hooks/useSettings';
+import { useAuth } from '../context/AuthContext';
 
 const RETENTION_OPTIONS = [
   { value: 1,    label: '1 Day' },
@@ -18,18 +19,33 @@ const RETENTION_OPTIONS = [
   { value: null, label: 'Never Delete' },
 ];
 
+function Toggle({ value, onChange }) {
+  return (
+    <button
+      className={`relative inline-flex h-7 w-12 items-center rounded-full transition-colors ${value ? 'bg-blue-600' : 'bg-slate-300'}`}
+      onClick={() => onChange(!value)}
+    >
+      <span className={`inline-block h-5 w-5 transform rounded-full bg-white transition-transform ${value ? 'translate-x-6' : 'translate-x-1'}`} />
+    </button>
+  );
+}
+
 export default function SettingsPage() {
   const [tab, setTab] = useState('profile');
   const { dark, setDark } = useApp();
   const { settings, updateSettings } = useSettings();
   const { clearTodayData, clearAllData, exportData, importData, loadHistory } = useData();
+  const { currentLab, updateLabProfile } = useAuth();
 
   const [profile, setProfile] = useState({
-    name:    settings.labProfile?.name    || 'LabPro Diagnostics',
-    license: settings.labProfile?.license || 'NABL-2026-48091',
-    email:   settings.labProfile?.email   || 'care@labprodiagnostics.in',
-    phone:   settings.labProfile?.phone   || '+91 80 4567 8900',
-    address: settings.labProfile?.address || '24, Health Plaza, Indiranagar, Bengaluru, Karnataka 560038',
+    name:    currentLab?.labName   || settings.labProfile?.name    || '',
+    license: settings.labProfile?.license || '',
+    email:   currentLab?.email     || settings.labProfile?.email   || '',
+    phone:   currentLab?.mobile    || settings.labProfile?.phone   || '',
+    address: currentLab?.address
+      ? `${currentLab.address}, ${currentLab.city}, ${currentLab.state} - ${currentLab.pincode}`
+      : settings.labProfile?.address || '',
+    website: settings.labProfile?.website || '',
   });
 
   const [confirmClearToday, setConfirmClearToday] = useState(false);
@@ -47,6 +63,7 @@ export default function SettingsPage() {
   // ── Handlers ────────────────────────────────────────────
   const handleSaveProfile = () => {
     updateSettings({ labProfile: profile });
+    updateLabProfile({ labName: profile.name, mobile: profile.phone });
     toast.success('Settings saved');
   };
 
@@ -56,7 +73,7 @@ export default function SettingsPage() {
     const url  = URL.createObjectURL(blob);
     const a    = document.createElement('a');
     a.href     = url;
-    a.download = `labpro-backup-${new Date().toISOString().slice(0, 10)}.json`;
+    a.download = `labpro-${currentLab?.labId || 'backup'}-${new Date().toISOString().slice(0, 10)}.json`;
     a.click();
     URL.revokeObjectURL(url);
     toast.success('Data exported as JSON');
@@ -96,21 +113,22 @@ export default function SettingsPage() {
     setHistory(h);
   };
 
-  const Toggle = ({ value, onChange }) => (
-    <button
-      className={`relative inline-flex h-7 w-12 items-center rounded-full transition-colors ${value ? 'bg-blue-600' : 'bg-slate-300'}`}
-      onClick={() => onChange(!value)}
-    >
-      <span className={`inline-block h-5 w-5 transform rounded-full bg-white transition-transform ${value ? 'translate-x-6' : 'translate-x-1'}`} />
-    </button>
-  );
-
   return (
     <>
       <PageHeader
         title="Settings"
         description="Manage your laboratory profile, workflow and access preferences."
       />
+
+      {/* Lab ID badge */}
+      {currentLab?.labId && (
+        <div className="mb-4 flex items-center gap-2 rounded-xl border border-blue-200 bg-blue-50 px-4 py-2.5 dark:border-blue-900/40 dark:bg-blue-900/20">
+          <span className="text-xs font-bold text-blue-600 dark:text-blue-400">Laboratory ID:</span>
+          <span className="font-mono text-sm font-bold text-blue-700 dark:text-blue-300">{currentLab.labId}</span>
+          <span className="ml-2 text-xs text-blue-500 dark:text-blue-400">— Settings are isolated to this laboratory only.</span>
+        </div>
+      )}
+
       <div className="grid gap-6 sm:grid-cols-3 xl:grid-cols-3">
         <nav className="card h-max p-2 sm:col-span-1">
           {nav.map(([id, label, Icon]) => (
@@ -135,15 +153,15 @@ export default function SettingsPage() {
               <h2 className="text-lg font-semibold text-slate-900 dark:text-white">Laboratory profile</h2>
               <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">This information appears on reports and invoices.</p>
               <div className="mt-6 grid gap-4 sm:grid-cols-2">
-                {[['name', 'Laboratory name'], ['license', 'License number'], ['email', 'Email address'], ['phone', 'Phone number']].map(([key, label]) => (
+                {[['name', 'Laboratory name'], ['license', 'License number'], ['email', 'Email address'], ['phone', 'Phone number'], ['website', 'Website']].map(([key, label]) => (
                   <label key={key}>
                     <span className="label">{label}</span>
-                    <input className="field" value={profile[key]} onChange={e => setProfile({ ...profile, [key]: e.target.value })} />
+                    <input className="field" value={profile[key] || ''} onChange={e => setProfile({ ...profile, [key]: e.target.value })} />
                   </label>
                 ))}
                 <label className="md:col-span-2">
                   <span className="label">Address</span>
-                  <textarea className="field h-20" value={profile.address} onChange={e => setProfile({ ...profile, address: e.target.value })} />
+                  <textarea className="field h-20" value={profile.address || ''} onChange={e => setProfile({ ...profile, address: e.target.value })} />
                 </label>
               </div>
               <div className="mt-6 flex flex-col-reverse sm:flex-row justify-end gap-3">
@@ -179,6 +197,24 @@ export default function SettingsPage() {
                 </div>
                 <Toggle value={dark} onChange={setDark} />
               </div>
+              {/* Lab credentials info */}
+              <div className="mt-4 rounded-xl border border-slate-200 p-4 dark:border-slate-700 space-y-2">
+                <p className="text-sm font-semibold text-slate-700 dark:text-slate-300">Account information</p>
+                <div className="grid grid-cols-2 gap-2 text-xs">
+                  <span className="text-slate-500">Laboratory ID</span>
+                  <span className="font-mono font-bold text-blue-600 dark:text-blue-400">{currentLab?.labId || '—'}</span>
+                  <span className="text-slate-500">Registered email</span>
+                  <span className="text-slate-700 dark:text-slate-300">{currentLab?.email || '—'}</span>
+                  <span className="text-slate-500">Owner</span>
+                  <span className="text-slate-700 dark:text-slate-300">{currentLab?.ownerName || '—'}</span>
+                  <span className="text-slate-500">Registered on</span>
+                  <span className="text-slate-700 dark:text-slate-300">
+                    {currentLab?.createdAt
+                      ? new Date(currentLab.createdAt).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })
+                      : '—'}
+                  </span>
+                </div>
+              </div>
             </div>
           )}
 
@@ -187,7 +223,10 @@ export default function SettingsPage() {
             <div className="space-y-6">
               <div>
                 <h2 className="text-lg font-semibold text-slate-900 dark:text-white">Data & Storage</h2>
-                <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">Control how LabPro stores and retains your data locally.</p>
+                <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
+                  Control how LabPro stores and retains your data locally.
+                  All data is stored under <code className="rounded bg-slate-100 px-1 py-0.5 text-xs font-mono dark:bg-slate-800">labpro_{currentLab?.labId || 'LAB???'}_*</code>
+                </p>
               </div>
 
               {/* Auto Clear toggle */}
@@ -288,6 +327,7 @@ export default function SettingsPage() {
                   <FiAlertTriangle className="text-rose-500 shrink-0" />
                   <h3 className="text-sm font-semibold text-rose-700 dark:text-rose-400">Danger Zone</h3>
                 </div>
+                <p className="text-xs text-rose-600/80 dark:text-rose-400/70">These actions only affect <strong>{currentLab?.labId}</strong> data. Other laboratories are not affected.</p>
                 <div className="flex flex-wrap gap-3">
                   <button
                     className="flex items-center gap-2 rounded-xl border border-amber-300 bg-amber-50 px-4 py-2 text-sm font-semibold text-amber-700 hover:bg-amber-100 transition-colors dark:border-amber-700 dark:bg-amber-900/20 dark:text-amber-400"

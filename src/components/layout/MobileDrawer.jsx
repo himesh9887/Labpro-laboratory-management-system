@@ -7,7 +7,7 @@ import { navigation } from '../../constants/navigation';
 
 export default function MobileDrawer() {
   const { mobileDrawerOpen, setMobileDrawerOpen } = useApp();
-  const { user, logout } = useAuth();
+  const { user, currentLab, logout } = useAuth();
   const navigate = useNavigate();
 
   // Close on ESC
@@ -62,12 +62,13 @@ export default function MobileDrawer() {
         {/* Header */}
         <div className="flex items-center justify-between border-b border-slate-800 px-5 py-4">
           <div className="flex items-center gap-3">
-            <span className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-blue-600 font-bold text-white shadow-lg shadow-blue-900/40 text-sm">
-              L
-            </span>
+            {currentLab?.logo
+              ? <img src={currentLab.logo} alt="Logo" className="h-9 w-9 rounded-xl object-contain" />
+              : <span className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-blue-600 font-bold text-white shadow-lg shadow-blue-900/40 text-sm">L</span>
+            }
             <div>
-              <p className="font-semibold text-white text-sm">LabPro</p>
-              <p className="text-[10px] font-medium uppercase tracking-widest text-blue-300">LIMS Platform</p>
+              <p className="font-semibold text-white text-sm">{currentLab?.labName || 'LabPro'}</p>
+              <p className="text-[10px] font-medium uppercase tracking-widest text-blue-300">{currentLab?.labId || 'LIMS Platform'}</p>
             </div>
           </div>
           <button
@@ -105,10 +106,10 @@ export default function MobileDrawer() {
           <div className="rounded-2xl bg-white/5 p-3">
             <div className="flex items-center gap-3 mb-3">
               <span className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-gradient-to-br from-blue-400 to-violet-500 text-xs font-bold text-white">
-                {user?.avatar || 'DK'}
+                {user?.avatar || 'A'}
               </span>
               <div className="overflow-hidden">
-                <p className="text-xs font-semibold text-white truncate">{user?.name || 'Administrator'}</p>
+                <p className="text-xs font-semibold text-white truncate">{user?.adminName || 'Administrator'}</p>
                 <p className="text-[10px] text-slate-400 truncate">{user?.role || 'Administrator'}</p>
               </div>
             </div>

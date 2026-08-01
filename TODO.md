@@ -1,44 +1,41 @@
-code update # Print UI & PDF Redesign - Implementation Progress ✅ COMPLETE
+# LabPro LIMS — Enterprise Super Admin & Multi-Tenant System
 
-## Step 1: Rewrite Print CSS & A4 Layout ✅
-- [x] Complete `@media print` rules
-- [x] Hide sidebar, navbar, buttons, inputs, dropdowns, search
-- [x] A4 dimensions: 210mm x 297mm, margins 20mm
-- [x] Page break prevention (`page-break-inside: avoid`)
-- [x] Force white backgrounds, no dark mode in print
-- [x] Font anti-aliasing for print
-- [x] Add `@page` size A4 rules
-- [x] Print-color-adjust for exact table/card colors
+## Phase 1 — Core Wiring
+- [x] Add `SuperAdminProvider` to `main.jsx`
+- [x] Add `/admin/*` routes + `AdminProtectedRoute` to `App.jsx`
+- [x] Remove public `/register` route (registration only via Super Admin)
+- [x] Create `AdminProtectedRoute` component
 
-## Step 2: Redesign Invoice Preview (InvoicePreviewHTML) ✅
-- [x] Premium header with logo, name, address, phone, email
-- [x] Patient Information Card with rounded corners, gray bg, 2-column layout
-- [x] Professional 5-column test table with dark blue header (#1E40AF), white text, alternating rows
-- [x] Summary Card right-aligned with shadow, rounded corners
-- [x] Grand Total larger, Paid Green (#059669), Due Red (#DC2626)
-- [x] Professional footer with thin separator, copyright
+## Phase 2 — Shared Admin UI Components
+- [x] `AdminPageHeader`, `AdminModal`, `StatusPill`, `AdminStatCard`, `AdminConfirmDialog`
+- [x] `src/data/defaultStaff.js` (shared staff defaults)
 
-## Step 3: Redesign Report Preview (ReportPreview.jsx) ✅
-- [x] Premium header: large logo, hospital name, address, phone, email, website, QR code, barcode
-- [x] Patient Information Card: rounded corners, light gray bg, 2-column grid with perfect spacing
-- [x] Test Results Tables: dark blue header (#1E40AF), white bold text, alternating rows
-- [x] Result values colored by status with background badges (normal=green, high=amber, low=red, critical=rose)
-- [x] Department/Specimen/Method metadata under each test title
-- [x] Interpretation section with blue soft background, Comments section
-- [x] Doctor signature + Authorized signatory with dashed lines
-- [x] Professional footer with confidentiality notice, page number, date, copyright
+## Phase 3 — Admin Pages
+- [x] AdminLabsPage (table + create/edit/view/reset-password/extend/backup/delete)
+- [x] AdminSubscriptionsPage
+- [x] AdminPaymentsPage
+- [x] AdminActivityPage
+- [x] AdminLoginHistoryPage
+- [x] AdminNotificationsPage
+- [x] AdminBackupPage
+- [x] AdminSettingsPage
 
-## Step 4: Typography & Text Colors ✅
-- [x] Heading (Poppins 700): #111827
-- [x] Section Titles (Poppins 600): #111827
-- [x] Normal Text (Inter 400/500): #374151
-- [x] Reference Text (Inter 400): #6B7280
-- [x] Table Header: White bold on #1E40AF
-- [x] No light gray for important text anywhere
+## Phase 4 — Admin Navigation (Mobile + Desktop)
+- [x] `AdminMobileDrawer` (hamburger menu)
+- [x] Update `AdminLayout` to include mobile drawer
 
-## Step 5: Dark Mode & Print Finalization ✅
-- [x] Dashboard retains dark mode support (Tailwind dark: classes unchanged)
-- [x] Invoice and Report always render in clean white theme
-- [x] Print CSS forces white backgrounds, exact table colors
-- [x] No dark backgrounds leak into printable content
+## Phase 5 — Unified Login (Admin first, then Laboratory)
+- [x] Rewrite `LoginPage` — remove register tab, check admin then lab
+
+## Phase 6 — Lab App Bug Fixes
+- [x] DashboardPage greeting uses logged-in admin name
+- [x] GlobalSearch patient link — remove broken `/patients` route
+- [x] Modal ESC close + body scroll lock
+- [x] Topbar user dropdown — click-based (works on touch)
+- [x] Invoice / Report preview branding uses current lab profile
+- [x] LabService — reject suspended / deleted / expired accounts on login
+- [x] AdminService.createLab — auto-seed isolated lab storage (settings, tests, staff)
+
+## Phase 7 — QA
+- [x] Production build passes (no compile/runtime errors)
 

@@ -1,39 +1,44 @@
 /**
  * useDailyReset.js
  * ────────────────
- * Runs once at app startup. Compares the stored date with today.
+ * Runs once per lab session at app startup. Compares the stored date with today.
  * If the date has changed, triggers the daily reset sequence:
  *   1. Archive yesterday's invoices (if keepHistory)
  *   2. Prune expired patients and reports (if autoClear)
  *   3. Reset invoice counter
- *   4. Write today's date to labpro_today
+ *   4. Write today's date to <labId>_today
+ *
+ * Accepts scopedStorage so the 'today' key is always lab-scoped:
+ *   labpro_LAB001_today  (not a shared global key)
  *
  * Returns { isNewDay } so callers can react if needed.
  */
 
 import { useEffect, useRef, useState } from 'react';
-import storageService   from '../services/storageService';
-import invoiceService   from '../services/invoiceService';
-import patientService   from '../services/patientService';
-import reportService    from '../services/reportService';
-import settingsService  from '../services/settingsService';
+import { createInvoiceService }  from '../services/invoiceService';
+import { createPatientService }  from '../services/patientService';
+import { createReportService }   from '../services/reportService';
+import { createSettingsService } from '../services/settingsService';
 
 const TODAY_KEY = 'today';
 
 function currentDateStr() {
-  return new Date().toISOString().slice(0, 10); // 'YYYY-MM-DD'
+  return new Date().toISOString().slice(0, 10);
 }
 
-export function useDailyReset() {
+export function useDailyReset(scopedStorage) {
   const [isNewDay, setIsNewDay] = useState(false);
-  const ran = useRef(false);
+  const ran = useRef(null); // tracks which labId we last ran for
 
   useEffect(() => {
-    if (ran.current) return;
-    ran.current = true;
+    if (!scopedStorage) return;
+
+    // Only run once per lab session (prevent double-fire in StrictMode)
+    if (ran.current === scopedStorage.labId) return;
+    ran.current = scopedStorage.labId;
 
     const today = currentDateStr();
-    const meta  = storageService.get(TODAY_KEY, { date: null, counter: 0 });
+    const meta  = scopedStorage.get(TODAY_KEY, { date: null, counter: 0 });
 
     if (meta.date === today) {
       // Same day — nothing to do
@@ -41,33 +46,37 @@ export function useDailyReset() {
     }
 
     // ─── Daily Reset ──────────────────────────────────────
-    const { keepHistory, autoClear, retentionDays } = settingsService.getSettings();
+    const invoiceSvc  = createInvoiceService(scopedStorage);
+    const patientSvc  = createPatientService(scopedStorage);
+    const reportSvc   = createReportService(scopedStorage);
+    const settingsSvc = createSettingsService(scopedStorage);
+
+    const { keepHistory, autoClear, retentionDays } = settingsSvc.getSettings();
     const yesterday = meta.date;
 
     if (yesterday) {
       if (keepHistory) {
-        // Archive yesterday's invoices before wiping them
-        const oldInvoices = invoiceService.loadInvoices();
-        invoiceService.archiveToHistory(oldInvoices, yesterday);
-        invoiceService.pruneHistory(retentionDays);
+        const oldInvoices = invoiceSvc.loadInvoices();
+        invoiceSvc.archiveToHistory(oldInvoices, yesterday);
+        invoiceSvc.pruneHistory(retentionDays);
       }
     }
 
-    // Clear today's invoice list for the new day
-    invoiceService.clearTodayInvoices();
-    invoiceService.resetCounter(today);
+    invoiceSvc.clearTodayInvoices();
+    invoiceSvc.resetCounter(today);
 
     if (autoClear) {
-      patientService.pruneExpired(retentionDays);
-      reportService.pruneExpired(retentionDays);
+      patientSvc.pruneExpired(retentionDays);
+      reportSvc.pruneExpired(retentionDays);
     }
 
-    // Write the new date
-    storageService.set(TODAY_KEY, { date: today, counter: 0 });
+    scopedStorage.set(TODAY_KEY, { date: today, counter: 0 });
 
     setIsNewDay(true);
-    console.info(`[useDailyReset] New day detected (${yesterday} → ${today}). Daily reset complete.`);
-  }, []);
+    console.info(
+      `[useDailyReset] [${scopedStorage.labId}] New day detected (${yesterday} → ${today}). Reset complete.`
+    );
+  }, [scopedStorage]);
 
   return { isNewDay };
 }

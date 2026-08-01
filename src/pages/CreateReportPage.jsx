@@ -18,8 +18,6 @@ import { usePatients } from '../hooks/usePatients';
 import { useDraft } from '../hooks/useDraft';
 
 // ─── Constants ───────────────────────────────────────────
-const STICKY_TOP = 73 + 28; // 101px
-
 const blank = {
   name: '', age: '', gender: 'Female',
   patientId: '', registrationNumber: '', barcodeNumber: '',
@@ -76,44 +74,6 @@ function MobilePreviewModal({ patient, tests, values, onClose }) {
         <A4PreviewPanel patient={patient} tests={tests} values={values} />
       </div>
     </div>
-  );
-}
-
-// ─── Sticky preview panel (xl desktop only) ──────────────
-function StickyPreviewPanel({ patient, tests, values }) {
-  return (
-    <aside
-      style={{
-        position: 'sticky',
-        top: `${STICKY_TOP}px`,
-        height: `calc(100vh - ${STICKY_TOP}px - 28px)`,
-        display: 'flex',
-        flexDirection: 'column',
-        minWidth: 0,
-      }}
-    >
-      <div
-        className="flex shrink-0 items-center gap-2 rounded-t-2xl px-4 py-2.5"
-        style={{ border: '1px solid #E2E8F0', borderBottom: 'none', background: '#ffffff' }}
-      >
-        <span className="grid h-6 w-6 place-items-center rounded-lg bg-blue-50 text-blue-600">
-          <FiFileText size={13} />
-        </span>
-        <span className="text-xs font-semibold text-slate-600">Report Preview</span>
-        <span
-          className="ml-auto rounded-full px-2 py-0.5 text-[9px] font-semibold"
-          style={{ background: 'rgba(34,197,94,.12)', color: '#16a34a' }}
-        >
-          ● Live
-        </span>
-      </div>
-      <div
-        className="dark:border-slate-700 min-h-0 flex-1 rounded-b-2xl"
-        style={{ border: '1px solid #E2E8F0', background: '#F3F4F6', overflow: 'hidden' }}
-      >
-        <A4PreviewPanel patient={patient} tests={tests} values={values} />
-      </div>
-    </aside>
   );
 }
 

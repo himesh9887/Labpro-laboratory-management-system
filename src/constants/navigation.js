@@ -1,4 +1,4 @@
-import { FiActivity, FiFilePlus, FiFileText, FiHome, FiSettings, FiUsers, FiUserPlus, FiDollarSign } from 'react-icons/fi';
+import { FiActivity, FiFilePlus, FiFileText, FiHome, FiSettings, FiUserPlus, FiDollarSign } from 'react-icons/fi';
 export const navigation = [
   { label: 'Dashboard', to: '/dashboard', icon: FiHome },
   { label: 'Create Report', to: '/reports/create', icon: FiFilePlus },

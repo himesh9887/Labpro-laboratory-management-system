@@ -7,22 +7,25 @@ import App from './App';
 import { AppProvider } from './context/AppContext';
 import { AuthProvider } from './context/AuthContext';
 import { DataProvider } from './context/DataContext';
+import { SuperAdminProvider } from './context/SuperAdminContext';
 import './assets/styles/index.css';
 
 const client = new QueryClient();
 ReactDOM.createRoot(document.getElementById('root')).render(
   <React.StrictMode>
-    <QueryClientProvider client={client}>
-      <AuthProvider>
-        <AppProvider>
-          <DataProvider>
-            <BrowserRouter>
-              <App />
-              <Toaster position="top-right" toastOptions={{ className: 'toast' }} />
-            </BrowserRouter>
-          </DataProvider>
-        </AppProvider>
-      </AuthProvider>
-    </QueryClientProvider>
+    <BrowserRouter>
+      <QueryClientProvider client={client}>
+        <SuperAdminProvider>
+          <AuthProvider>
+            <AppProvider>
+              <DataProvider>
+                <App />
+                <Toaster position="top-right" toastOptions={{ className: 'toast' }} />
+              </DataProvider>
+            </AppProvider>
+          </AuthProvider>
+        </SuperAdminProvider>
+      </QueryClientProvider>
+    </BrowserRouter>
   </React.StrictMode>
 );
