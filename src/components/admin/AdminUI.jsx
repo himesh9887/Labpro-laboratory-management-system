@@ -14,7 +14,7 @@ export function AdminPageHeader({ title, description, action }) {
   return (
     <div className="mb-7 flex flex-col justify-between gap-4 md:flex-row md:items-end">
       <div>
-        <p className="mb-1 text-xs font-semibold uppercase tracking-[.16em] text-amber-500">Fast Coders Platform</p>
+        <p className="mb-1 text-xs font-semibold uppercase tracking-[.16em] text-blue-400">LabPro LIMS</p>
         <h1 className="text-2xl font-semibold tracking-tight text-white md:text-3xl">{title}</h1>
         {description && <p className="mt-1.5 text-sm text-slate-400">{description}</p>}
       </div>

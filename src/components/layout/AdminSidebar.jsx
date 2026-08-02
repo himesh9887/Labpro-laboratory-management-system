@@ -4,7 +4,9 @@ import { useSuperAdmin } from '../../context/SuperAdminContext';
 import { adminNavigation } from '../../constants/adminNavigation';
 
 export default function AdminSidebar({ sidebarOpen, setSidebarOpen }) {
-  const { adminLogout } = useSuperAdmin();
+  const { adminLogout, adminSession } = useSuperAdmin();
+  const adminName = adminSession?.name || 'Super Admin';
+  const adminInitials = adminName.split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase();
   const navigate = useNavigate();
 
   const handleSignOut = () => {
@@ -22,12 +24,12 @@ export default function AdminSidebar({ sidebarOpen, setSidebarOpen }) {
       <div className={`flex items-center px-4 py-5 ${sidebarOpen ? 'justify-between' : 'justify-center'}`}>
         <div className={`flex items-center ${sidebarOpen ? 'gap-3' : 'gap-0 flex-col'}`}>
           <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-gradient-to-br from-amber-500 to-rose-600 font-display text-lg font-bold text-white shadow-lg shadow-amber-900/40">
-            FC
+            LP
           </span>
           {sidebarOpen && (
             <div className="overflow-hidden">
               <p className="font-display text-base font-semibold text-white whitespace-nowrap leading-tight">
-                Fast Coders
+                LabPro LIMS
               </p>
               <p className="text-[10px] font-medium uppercase tracking-[.18em] text-amber-300 whitespace-nowrap">
                 Super Admin
@@ -72,12 +74,12 @@ export default function AdminSidebar({ sidebarOpen, setSidebarOpen }) {
         <div className={`rounded-2xl bg-white/5 p-3 w-full ${sidebarOpen ? '' : 'flex flex-col items-center'}`}>
           <div className={`flex items-center ${sidebarOpen ? 'gap-2 mb-3' : 'gap-0 flex-col mb-2'}`}>
             <span className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-gradient-to-br from-amber-400 to-rose-500 text-xs font-bold text-white">
-              SA
+              {adminInitials}
             </span>
             {sidebarOpen && (
               <div className="overflow-hidden">
-                <p className="text-xs font-semibold text-white whitespace-nowrap">Super Admin</p>
-                <p className="text-[10px] text-slate-400 whitespace-nowrap">Fast Coders</p>
+                <p className="text-xs font-semibold text-white whitespace-nowrap">{adminName}</p>
+                <p className="text-[10px] text-slate-400 whitespace-nowrap">LabPro LIMS</p>
               </div>
             )}
           </div>
@@ -96,4 +98,3 @@ export default function AdminSidebar({ sidebarOpen, setSidebarOpen }) {
     </aside>
   );
 }
-

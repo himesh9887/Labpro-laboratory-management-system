@@ -2,10 +2,13 @@ import { useState } from 'react';
 import { Outlet } from 'react-router-dom';
 import AdminSidebar from './AdminSidebar';
 import AdminMobileDrawer from './AdminMobileDrawer';
+import { useSuperAdmin } from '../../context/SuperAdminContext';
 
 export default function AdminLayout() {
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [mobileDrawerOpen, setMobileDrawerOpen] = useState(false);
+  const { adminSession } = useSuperAdmin();
+  const adminName = adminSession?.name || 'Super Admin';
 
   return (
     <div className="min-h-screen bg-slate-950 transition-colors overflow-x-hidden">
@@ -42,14 +45,15 @@ export default function AdminLayout() {
               </svg>
             </button>
             <div className="flex items-center gap-2">
-              <span className="grid h-7 w-7 place-items-center rounded-lg bg-gradient-to-br from-amber-500 to-rose-600 text-xs font-bold text-white">
-                FC
+              <span className="grid h-7 w-7 place-items-center rounded-lg bg-gradient-to-br from-blue-600 to-violet-600 text-xs font-bold text-white">
+                LP
               </span>
-              <span className="text-sm font-semibold text-white hidden sm:block">Fast Coders Admin</span>
+              <span className="text-sm font-semibold text-white hidden sm:block">LabPro LIMS</span>
             </div>
           </div>
           <div className="flex items-center gap-3">
-            <span className="text-xs text-slate-400">
+            <span className="text-xs font-medium text-slate-300 hidden sm:block">{adminName}</span>
+            <span className="text-xs text-slate-500">
               {new Date().toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}
             </span>
           </div>
